@@ -25,3 +25,5 @@ env:
   # Deberás configurar este secreto en tu consola de Firebase App Hosting.
   - variable: SMTP_PASS
     secret: SMTP_PASSWORD_SECRET
+  - variable: SMTP_PASSWORD_SECRET
+    secret: SMTP_PASSWORD_SECRET
