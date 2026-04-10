@@ -1,0 +1,27 @@
+kind: AppHostingConfiguration
+schemaVersion: v1
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: "AIzaSyDTD4SFX70kdfCGrlmcOTiPm7jnxuDoLW4"
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: "certifica-magistral.firebaseapp.com"
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: "certifica-magistral"
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: "certifica-magistral.firebasestorage.app"
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "958903841170"
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:958903841170:web:7056cdc56d57eddb82914b"
+  - variable: SMTP_HOST
+    value: "smtp.gmail.com"
+  - variable: SMTP_PORT
+    value: "587"
+  - variable: SMTP_USER
+    value: "huatucomagistral@gmail.com"
+  - variable: SMTP_FROM
+    value: "Certifica Magistral <huatucomagistral@gmail.com>"
+  # Para la contraseña de SMTP, usaremos un secreto por seguridad.
+  # Deberás configurar este secreto en tu consola de Firebase App Hosting.
+  - variable: SMTP_PASS
+    secret: SMTP_PASSWORD_SECRET
