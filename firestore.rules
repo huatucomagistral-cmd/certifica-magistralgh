@@ -1,0 +1,18 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Templates: solo lectura/escritura para usuarios autenticados
+    match /templates/{templateId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // Certificates: escritura solo autenticados, lectura pública (para la verificación)
+    match /certificates/{certId} {
+      allow read: if true;  // Pública para verificación por QR
+      allow write: if request.auth != null;
+    }
+  }
+}
