@@ -6,50 +6,28 @@ import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import Link from "next/link";
 import {
-  LayoutDashboard,
   FileText,
-  Copy,
   LogOut,
   Menu,
   X,
-  Users,
 } from "lucide-react";
 
-const navItems = [
-  {
-    label: "Dashboard",
-    href: "/admin/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    label: "Plantillas",
-    href: "/admin/dashboard/templates",
-    icon: Copy,
-  },
-  {
-    label: "Certificados",
-    href: "/admin/dashboard/certificados",
-    icon: FileText,
-  },
-  {
-    label: "Alumnos",
-    href: "/admin/dashboard/alumnos",
-    icon: Users,
-  },
-];
-
-export default function AdminLayout({ children }: { children: ReactNode }) {
+export default function AlumnoLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (!currentUser) {
-        router.push("/login"); // Cambiado
+        router.push("/login");
+      } else if (currentUser.email === "huatucomagistral@gmail.com") {
+        router.push("/admin/dashboard");
       } else {
         setUser(currentUser);
+        setLoading(false);
       }
     });
     return () => unsubscribe();
@@ -57,11 +35,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   const handleLogout = async () => {
     await signOut(auth);
-    router.push("/login"); // Cambiado
+    router.push("/login");
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-screen bg-slate-100 flex overflow-hidden">
+    <div className="h-screen bg-slate-50 flex overflow-hidden">
       {/* Overlay móvil */}
       {sidebarOpen && (
         <div
@@ -87,33 +73,24 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </div>
           <div>
             <p className="text-white font-bold text-sm leading-tight">Magistral</p>
-            <p className="text-indigo-200 text-xs">Certificaciones</p>
+            <p className="text-indigo-200 text-xs">Portal de Alumnos</p>
           </div>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
-            const isActive =
-              item.href === "/admin/dashboard"
-                ? pathname === "/admin/dashboard"
-                : pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  isActive
-                    ? "bg-white text-primary"
-                    : "text-indigo-100 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <item.icon className="w-4 h-4 flex-shrink-0" />
-                {item.label}
-              </Link>
-            );
-          })}
+          <Link
+            href="/alumno/dashboard"
+            onClick={() => setSidebarOpen(false)}
+            className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              pathname === "/alumno/dashboard"
+                ? "bg-white text-primary"
+                : "text-indigo-100 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            <FileText className="w-4 h-4 flex-shrink-0" />
+            Mis Certificados
+          </Link>
         </nav>
 
         {/* User area */}
@@ -134,7 +111,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               )}
               <div className="overflow-hidden">
                 <p className="text-white text-xs font-semibold truncate">
-                  {user.displayName || "Administrador"}
+                  {user.displayName || "Usuario"}
                 </p>
                 <p className="text-indigo-200 text-xs truncate">{user.email}</p>
               </div>
@@ -153,14 +130,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top bar móvil */}
-        <header className="lg:hidden bg-white border-b px-4 h-14 flex items-center gap-3 sticky top-0 z-10 shadow-sm">
+        <header className="lg:hidden bg-white border-b border-slate-200 px-4 h-14 flex items-center gap-3 sticky top-0 z-10 shadow-sm">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md"
+            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-md"
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-bold text-slate-800">Magistral Certificaciones</span>
+          <span className="font-bold text-slate-800 text-sm">Portal de Alumnos</span>
           {sidebarOpen && (
             <button
               onClick={() => setSidebarOpen(false)}

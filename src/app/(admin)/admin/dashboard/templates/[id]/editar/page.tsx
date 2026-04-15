@@ -17,7 +17,7 @@ import { v4 as uuidv4 } from "uuid";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const FIELD_COLORS = ["#02367B", "#e11d48", "#059669", "#d97706", "#7c3aed", "#0891b2"];
+const FIELD_COLORS = ["#4338ca", "#e11d48", "#059669", "#d97706", "#7c3aed", "#0891b2"];
 
 const FONT_OPTIONS = [
   { value: "Helvetica",      label: "Helvetica",         css: "Helvetica, Arial, sans-serif" },
@@ -245,7 +245,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
   if (loadingTemplate) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-8 h-8 text-[#02367B] animate-spin" />
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
         <span className="ml-3 text-slate-500 font-medium">Cargando plantilla…</span>
       </div>
     );
@@ -255,7 +255,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
         <p className="text-red-600 font-semibold">{errorMsg}</p>
-        <Link href="/admin/dashboard/templates" className="text-sm text-[#02367B] underline">← Volver a plantillas</Link>
+        <Link href="/admin/dashboard/templates" className="text-sm text-primary underline">← Volver a plantillas</Link>
       </div>
     );
   }
@@ -300,7 +300,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
           <button
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-[#02367B] rounded-xl hover:bg-[#012d68] transition-all disabled:opacity-50 shadow-md hover:shadow-lg active:scale-95"
+            className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-primary rounded-xl hover:bg-indigo-800 transition-all disabled:opacity-50 shadow-md hover:shadow-lg active:scale-95"
           >
             <Save className="w-4 h-4" />
             {saving ? "Guardando..." : "Guardar Cambios"}
@@ -311,7 +311,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
         <div className="bg-white rounded-xl border border-slate-100 p-1.5 flex items-center gap-1 overflow-x-auto no-scrollbar shadow-sm min-h-[52px]">
           <button
             onClick={addField}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-50 text-[#02367B] hover:bg-blue-50 transition-colors border border-dashed border-blue-200 shrink-0"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-50 text-primary hover:bg-indigo-50 transition-colors border border-dashed border-indigo-200 shrink-0"
           >
             <PlusIcon className="w-3.5 h-3.5" />
             <span className="text-[10px] font-bold uppercase">Nuevo Campo</span>
@@ -326,11 +326,11 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
                 onClick={() => setActiveId(isActive ? null : field.id)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all shrink-0 max-w-[180px] group ${
                   isActive 
-                    ? "bg-[#02367B] border-[#02367B] text-white shadow-md ring-2 ring-blue-200" 
+                    ? "bg-primary border-primary text-white shadow-md ring-2 ring-indigo-200" 
                     : "bg-white border-slate-100 text-slate-600 hover:border-slate-300"
                 }`}
               >
-                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? "bg-white" : "bg-[#02367B]"}`} style={{ backgroundColor: isActive ? 'white' : FIELD_COLORS[idx % FIELD_COLORS.length] }} />
+                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? "bg-white" : "bg-primary"}`} style={{ backgroundColor: isActive ? 'white' : FIELD_COLORS[idx % FIELD_COLORS.length] }} />
                 <span className="text-xs font-semibold truncate">{field.label}</span>
                 <div className="flex items-center gap-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <div className="flex flex-col -space-y-1">
@@ -347,7 +347,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
             onClick={() => setActiveId(activeId === "qr" ? null : "qr")}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all shrink-0 ${
               activeId === "qr" 
-                ? "bg-[#02367B] border-[#02367B] text-white shadow-md ring-2 ring-blue-200" 
+                ? "bg-primary border-primary text-white shadow-md ring-2 ring-indigo-200" 
                 : "bg-white border-slate-100 text-slate-600 hover:border-slate-300"
             }`}
           >
@@ -374,7 +374,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
                 />
                 <input type="range" min="5" max="30" value={Math.round(qrSizeRatio * 100)}
                   onChange={(e) => setQrSizeRatio(Number(e.target.value) / 100)}
-                  className="w-20 accent-[#02367B] h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer" />
+                  className="w-20 accent-[#4338ca] h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer" />
               </div>
               <div className="h-6 w-px bg-slate-100" />
               <div className="flex items-center gap-3">
@@ -388,8 +388,8 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
                   <NumericControl value={+(qrYRatio * 100).toFixed(1)} onChange={(v) => setQrYRatio(v / 100)} step={0.5} min={0} max={100} suffix="%" className="w-24" />
                 </div>
               </div>
-              <div className="ml-auto px-4 bg-blue-50 py-1 rounded-full border border-blue-100">
-                 <span className="text-[10px] font-bold text-[#02367B] uppercase tracking-tighter">Editando QR</span>
+              <div className="ml-auto px-4 bg-indigo-50 py-1 rounded-full border border-indigo-100">
+                 <span className="text-[10px] font-bold text-primary uppercase tracking-tighter">Editando QR</span>
               </div>
             </div>
           ) : (
@@ -406,7 +406,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
                         type="text"
                         value={field.label}
                         onChange={(e) => updateField(field.id, "label", e.target.value)}
-                        className="bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 w-32 outline-[#02367B]"
+                        className="bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 w-32 outline-[#4338ca]"
                       />
                     </div>
 
@@ -417,7 +417,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
                       <select
                         value={field.fontFamily}
                         onChange={(e) => updateField(field.id, "fontFamily", e.target.value)}
-                        className="bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-xs font-semibold w-32 outline-[#02367B]"
+                        className="bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-xs font-semibold w-32 outline-[#4338ca]"
                         style={{ fontFamily: getCssFamily(field.fontFamily) }}
                       >
                         {FONT_OPTIONS.map((f) => (
@@ -498,7 +498,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
         <div className="max-w-[95vw] lg:max-w-5xl w-full bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden mb-12">
           {loadingBg ? (
             <div className="flex flex-col items-center justify-center py-32 gap-4 bg-slate-50/50">
-              <Loader2 className="w-10 h-10 text-[#02367B] animate-spin" />
+              <Loader2 className="w-10 h-10 text-primary animate-spin" />
               <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Cargando Vista Previa...</p>
             </div>
           ) : imagePreview ? (
@@ -536,7 +536,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
 
                 {/* Placement tooltip */}
                 {activeId && !isDragging && (
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-[#02367B] text-white text-[10px] font-bold px-4 py-2 rounded-full shadow-2xl animate-bounce pointer-events-none uppercase tracking-widest whitespace-nowrap border border-white/20">
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-primary text-white text-[10px] font-bold px-4 py-2 rounded-full shadow-2xl animate-bounce pointer-events-none uppercase tracking-widest whitespace-nowrap border border-white/20">
                     🖊 Click para posicionar &ldquo;{activeLabel}&rdquo;
                   </div>
                 )}
@@ -547,7 +547,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
                     key={field.id}
                     className={`absolute pointer-events-auto rounded-sm ${
                       activeId === field.id 
-                        ? "ring-2 ring-blue-500 bg-blue-500/10 shadow-xl z-20 outline-dashed outline-2 outline-blue-400 -outline-offset-2" 
+                        ? "ring-2 ring-indigo-500 bg-indigo-500/10 shadow-xl z-20 outline-dashed outline-2 outline-indigo-400 -outline-offset-2" 
                         : "hover:ring-1 hover:ring-slate-300 z-10"
                     } cursor-grab active:cursor-grabbing transition-all`}
                     onMouseDown={(e) => {
@@ -583,7 +583,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
 
                 {/* QR overlay */}
                 <div
-                  className={`absolute pointer-events-auto border-2 ${activeId === "qr" ? 'border-blue-500 bg-blue-500/10 shadow-2xl' : 'border-slate-500/50 bg-white/80'} cursor-grab active:cursor-grabbing flex items-center justify-center rounded transition-all`}
+                  className={`absolute pointer-events-auto border-2 ${activeId === "qr" ? 'border-indigo-500 bg-indigo-500/10 shadow-2xl' : 'border-slate-500/50 bg-white/80'} cursor-grab active:cursor-grabbing flex items-center justify-center rounded transition-all`}
                   onMouseDown={(e) => {
                       e.stopPropagation();
                       setActiveId("qr");
@@ -643,7 +643,7 @@ function NumericControl({
     <div className={`flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-7 shadow-sm ${className}`}>
       <button 
         onClick={handleSub}
-        className="px-1.5 h-full text-slate-400 hover:bg-slate-50 hover:text-[#02367B] transition-colors border-r border-slate-100"
+        className="px-1.5 h-full text-slate-400 hover:bg-slate-50 hover:text-primary transition-colors border-r border-slate-100"
       >
         <Minus className="w-3 h-3" />
       </button>
@@ -658,7 +658,7 @@ function NumericControl({
       </div>
       <button 
         onClick={handleAdd}
-        className="px-1.5 h-full text-slate-400 hover:bg-slate-50 hover:text-[#02367B] transition-colors border-l border-slate-100"
+        className="px-1.5 h-full text-slate-400 hover:bg-slate-50 hover:text-primary transition-colors border-l border-slate-100"
       >
         <PlusIcon className="w-3 h-3" />
       </button>
@@ -671,7 +671,7 @@ function ToggleBtn({ active, onClick, title, children }: { active: boolean; onCl
     <button
       onClick={(e) => { e.stopPropagation(); onClick(); }}
       title={title}
-      className={`p-1.5 rounded-lg transition-colors ${active ? "bg-[#02367B] text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
+      className={`p-1.5 rounded-lg transition-colors ${active ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
     >
       {children}
     </button>

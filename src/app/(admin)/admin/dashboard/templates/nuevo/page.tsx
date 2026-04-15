@@ -17,7 +17,7 @@ import { v4 as uuidv4 } from "uuid";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const FIELD_COLORS = ["#02367B", "#e11d48", "#059669", "#d97706", "#7c3aed", "#0891b2"];
+const FIELD_COLORS = ["#4338ca", "#e11d48", "#059669", "#d97706", "#7c3aed", "#0891b2"];
 
 const FONT_OPTIONS = [
   { value: "Helvetica",      label: "Helvetica",         css: "Helvetica, Arial, sans-serif" },
@@ -271,7 +271,7 @@ export default function NewTemplatePage() {
               />
             </div>
             <label className="flex items-center gap-2 px-2 cursor-pointer hover:bg-slate-50 rounded-lg transition-colors group">
-              <ImageIcon className="w-4 h-4 text-slate-400 group-hover:text-[#02367B]" />
+              <ImageIcon className="w-4 h-4 text-slate-400 group-hover:text-primary" />
               <span className="text-xs font-semibold text-slate-500 group-hover:text-slate-700 truncate max-w-[150px]">
                 {imageFile ? imageFile.name : "Subir Fondo"}
               </span>
@@ -282,7 +282,7 @@ export default function NewTemplatePage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-[#02367B] rounded-xl hover:bg-[#012d68] transition-all disabled:opacity-50 shadow-md hover:shadow-lg active:scale-95"
+            className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-primary rounded-xl hover:bg-indigo-800 transition-all disabled:opacity-50 shadow-md hover:shadow-lg active:scale-95"
           >
             <Save className="w-4 h-4" />
             {saving ? "Guardando..." : "Guardar"}
@@ -293,7 +293,7 @@ export default function NewTemplatePage() {
         <div className="bg-white rounded-xl border border-slate-100 p-1.5 flex items-center gap-1 overflow-x-auto no-scrollbar shadow-sm min-h-[52px]">
           <button
             onClick={addField}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-50 text-[#02367B] hover:bg-blue-50 transition-colors border border-dashed border-blue-200 shrink-0"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-50 text-primary hover:bg-indigo-50 transition-colors border border-dashed border-indigo-200 shrink-0"
           >
             <PlusIcon className="w-3.5 h-3.5" />
             <span className="text-[10px] font-bold uppercase">Nuevo Campo</span>
@@ -309,7 +309,7 @@ export default function NewTemplatePage() {
                 onClick={() => setActiveId(isActive ? null : field.id)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all shrink-0 max-w-[180px] group ${
                   isActive 
-                    ? "bg-[#02367B] border-[#02367B] text-white shadow-md ring-2 ring-blue-200" 
+                    ? "bg-primary border-primary text-white shadow-md ring-2 ring-indigo-200" 
                     : isPositioned 
                       ? "bg-emerald-50 border-emerald-100 text-emerald-700 hover:border-emerald-300 shadow-sm" 
                       : "bg-white border-slate-100 text-slate-600 hover:border-slate-300"
@@ -332,7 +332,7 @@ export default function NewTemplatePage() {
             onClick={() => setActiveId(activeId === "qr" ? null : "qr")}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all shrink-0 ${
               activeId === "qr" 
-                ? "bg-[#02367B] border-[#02367B] text-white shadow-md ring-2 ring-blue-200" 
+                ? "bg-primary border-primary text-white shadow-md ring-2 ring-indigo-200" 
                 : qrXRatio !== undefined 
                   ? "bg-emerald-50 border-emerald-100 text-emerald-700 shadow-sm" 
                   : "bg-white border-slate-100 text-slate-600 hover:border-slate-300"
@@ -361,7 +361,7 @@ export default function NewTemplatePage() {
                 />
                 <input type="range" min="5" max="30" value={Math.round(qrSizeRatio * 100)}
                   onChange={(e) => setQrSizeRatio(Number(e.target.value) / 100)}
-                  className="w-20 accent-[#02367B] h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer" />
+                  className="w-20 accent-[#4338ca] h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer" />
               </div>
               <div className="h-6 w-px bg-slate-100" />
               <div className="flex items-center gap-3">
@@ -375,8 +375,8 @@ export default function NewTemplatePage() {
                   <NumericControl value={qrYRatio !== undefined ? +(qrYRatio * 100).toFixed(1) : 92} onChange={(v) => setQrYRatio(v / 100)} step={0.5} min={0} max={100} suffix="%" className="w-24" />
                 </div>
               </div>
-              <div className="ml-auto px-4 bg-blue-50 py-1 rounded-full border border-blue-100">
-                 <span className="text-[10px] font-bold text-[#02367B] uppercase tracking-tighter">Editando QR</span>
+              <div className="ml-auto px-4 bg-indigo-50 py-1 rounded-full border border-indigo-100">
+                 <span className="text-[10px] font-bold text-primary uppercase tracking-tighter">Editando QR</span>
               </div>
             </div>
           ) : (
@@ -393,7 +393,7 @@ export default function NewTemplatePage() {
                         type="text"
                         value={field.label}
                         onChange={(e) => updateField(field.id, "label", e.target.value)}
-                        className="bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 w-32 outline-[#02367B]"
+                        className="bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 w-32 outline-[#4338ca]"
                       />
                     </div>
 
@@ -404,7 +404,7 @@ export default function NewTemplatePage() {
                       <select
                         value={field.fontFamily}
                         onChange={(e) => updateField(field.id, "fontFamily", e.target.value)}
-                        className="bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-xs font-semibold w-32 outline-[#02367B]"
+                        className="bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-xs font-semibold w-32 outline-[#4338ca]"
                         style={{ fontFamily: getCssFamily(field.fontFamily) }}
                       >
                         {FONT_OPTIONS.map((f) => (
@@ -518,7 +518,7 @@ export default function NewTemplatePage() {
 
                 {/* Placement tooltip */}
                 {activeId && !isDragging && (
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-[#02367B] text-white text-[10px] font-bold px-4 py-2 rounded-full shadow-2xl animate-bounce pointer-events-none uppercase tracking-widest whitespace-nowrap border border-white/20">
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-primary text-white text-[10px] font-bold px-4 py-2 rounded-full shadow-2xl animate-bounce pointer-events-none uppercase tracking-widest whitespace-nowrap border border-white/20">
                     🖊 Click para posicionar &ldquo;{activeLabel}&rdquo;
                   </div>
                 )}
@@ -527,7 +527,7 @@ export default function NewTemplatePage() {
                 {fields.filter((f) => f.xRatio !== undefined).map((field) => (
                   <div
                     key={field.id}
-                    className={`absolute pointer-events-auto ${activeId === field.id ? "ring-2 ring-blue-500 bg-blue-500/5 shadow-2xl z-20" : "hover:ring-1 hover:ring-slate-400 z-10"} cursor-grab active:cursor-grabbing transition-all`}
+                    className={`absolute pointer-events-auto ${activeId === field.id ? "ring-2 ring-indigo-500 bg-indigo-500/5 shadow-2xl z-20" : "hover:ring-1 hover:ring-slate-400 z-10"} cursor-grab active:cursor-grabbing transition-all`}
                     onMouseDown={(e) => {
                         e.stopPropagation();
                         setActiveId(field.id);
@@ -561,7 +561,7 @@ export default function NewTemplatePage() {
                 {/* QR overlay */}
                 {qrXRatio !== undefined && qrYRatio !== undefined && (
                   <div
-                    className={`absolute pointer-events-auto border-2 ${activeId === "qr" ? 'border-blue-500 bg-blue-500/10 shadow-2xl' : 'border-slate-500/50 bg-white/80'} cursor-grab active:cursor-grabbing flex items-center justify-center rounded transition-all`}
+                    className={`absolute pointer-events-auto border-2 ${activeId === "qr" ? 'border-indigo-500 bg-indigo-500/10 shadow-2xl' : 'border-slate-500/50 bg-white/80'} cursor-grab active:cursor-grabbing flex items-center justify-center rounded transition-all`}
                     onMouseDown={(e) => {
                         e.stopPropagation();
                         setActiveId("qr");
@@ -594,7 +594,7 @@ export default function NewTemplatePage() {
               <p className="text-sm text-slate-500 mt-2 max-w-[320px]">
                 Sube un PNG, JPG o PDF. Te recomendamos PDF de Canva para máxima nitidez en la emisión de certificados.
               </p>
-              <label className="mt-8 px-8 py-3 bg-[#02367B] text-white rounded-xl font-bold cursor-pointer hover:bg-[#012d68] transition-all shadow-md hover:shadow-xl active:scale-95">
+              <label className="mt-8 px-8 py-3 bg-primary text-white rounded-xl font-bold cursor-pointer hover:bg-indigo-800 transition-all shadow-md hover:shadow-xl active:scale-95">
                 Seleccionar Archivo
                 <input type="file" className="hidden" accept="image/png,image/jpeg,application/pdf,.pdf" onChange={handleImageChange} />
               </label>
@@ -613,7 +613,7 @@ function ToggleBtn({ active, onClick, children, title }: { active: boolean; onCl
     <button
       onClick={(e) => { e.stopPropagation(); onClick(); }}
       title={title}
-      className={`p-1.5 rounded transition-colors ${active ? "bg-[#02367B] text-white" : "text-slate-500 hover:bg-white hover:text-[#02367B]"}`}
+      className={`p-1.5 rounded transition-colors ${active ? "bg-primary text-white" : "text-slate-500 hover:bg-white hover:text-primary"}`}
     >
       {children}
     </button>
@@ -644,7 +644,7 @@ function NumericControl({
     <div className={`flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-7 shadow-sm ${className}`}>
       <button 
         onClick={handleSub}
-        className="px-1.5 h-full text-slate-400 hover:bg-slate-50 hover:text-[#02367B] transition-colors border-r border-slate-100"
+        className="px-1.5 h-full text-slate-400 hover:bg-slate-50 hover:text-primary transition-colors border-r border-slate-100"
       >
         <Minus className="w-3 h-3" />
       </button>
@@ -659,7 +659,7 @@ function NumericControl({
       </div>
       <button 
         onClick={handleAdd}
-        className="px-1.5 h-full text-slate-400 hover:bg-slate-50 hover:text-[#02367B] transition-colors border-l border-slate-100"
+        className="px-1.5 h-full text-slate-400 hover:bg-slate-50 hover:text-primary transition-colors border-l border-slate-100"
       >
         <PlusIcon className="w-3 h-3" />
       </button>

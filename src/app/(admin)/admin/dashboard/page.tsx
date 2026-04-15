@@ -60,7 +60,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
     return (
       <div className="bg-white border border-slate-100 shadow-lg rounded-xl px-4 py-2.5">
         <p className="text-xs text-slate-500 font-medium">{label}</p>
-        <p className="text-lg font-bold text-[#02367B]">{payload[0].value} <span className="text-xs font-normal text-slate-400">certs.</span></p>
+        <p className="text-lg font-bold text-primary">{payload[0].value} <span className="text-xs font-normal text-slate-400">certs.</span></p>
       </div>
     );
   }
@@ -110,13 +110,13 @@ export default function DashboardPage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Certificados totales", value: certificates.length, icon: FileText,  color: "bg-blue-50",    iconColor: "text-[#02367B]" },
+          { label: "Certificados totales", value: certificates.length, icon: FileText,  color: "bg-indigo-50",    iconColor: "text-primary" },
           { label: "Alumnos únicos",       value: students,            icon: Users,     color: "bg-violet-50",  iconColor: "text-violet-600" },
           { label: "Este mes",             value: thisMonth,           icon: TrendingUp, color: "bg-emerald-50", iconColor: "text-emerald-600" },
           { label: "Plantillas activas",   value: templates,           icon: Copy,      color: "bg-amber-50",   iconColor: "text-amber-600" },
         ].map(({ label, value, icon: Icon, color, iconColor }) => (
-          <div key={label} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex items-center gap-4">
-            <div className={`w-12 h-12 ${color} rounded-xl flex items-center justify-center flex-shrink-0`}>
+          <div key={label} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex items-center gap-4 hover:shadow-md hover:border-indigo-100 transition-all group">
+            <div className={`w-12 h-12 ${color} rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform`}>
               <Icon className={`w-6 h-6 ${iconColor}`} />
             </div>
             <div>
@@ -143,7 +143,7 @@ export default function DashboardPage() {
           </div>
           {loading ? (
             <div className="h-48 flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#02367B]" />
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={200}>
@@ -156,7 +156,7 @@ export default function DashboardPage() {
                   {monthData.map((entry, i) => (
                     <Cell
                       key={i}
-                      fill={entry.total === maxBar && entry.total > 0 ? "#02367B" : "#bfdbfe"}
+                      fill={entry.total === maxBar && entry.total > 0 ? "#4338ca" : "#bfdbfe"}
                     />
                   ))}
                 </Bar>
@@ -193,7 +193,7 @@ export default function DashboardPage() {
                       className="h-full rounded-full transition-all"
                       style={{
                         width: `${(count / courses[0].count) * 100}%`,
-                        background: i === 0 ? "#02367B" : `hsl(${215 + i * 15},${70 - i * 10}%,${50 + i * 8}%)`,
+                        background: i === 0 ? "#4338ca" : `hsl(${215 + i * 15},${70 - i * 10}%,${50 + i * 8}%)`,
                       }}
                     />
                   </div>
@@ -210,7 +210,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Link
             href="/admin/dashboard/certificados/nuevo"
-            className="group bg-[#02367B] text-white rounded-2xl p-6 flex items-center justify-between hover:bg-[#012d68] transition-colors shadow-md shadow-blue-900/20"
+            className="group bg-gradient-to-r from-primary to-indigo-800 text-white rounded-2xl p-6 flex items-center justify-between hover:shadow-lg transition-all shadow-md shadow-indigo-900/20"
           >
             <div className="flex items-center gap-4">
               <div className="bg-white/10 p-3 rounded-xl">
@@ -218,7 +218,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <p className="font-semibold text-base">Emitir Certificado</p>
-                <p className="text-blue-200 text-sm mt-0.5">Generar un nuevo documento</p>
+                <p className="text-indigo-200 text-sm mt-0.5">Generar un nuevo documento</p>
               </div>
             </div>
             <ArrowRight className="w-5 h-5 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />

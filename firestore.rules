@@ -3,16 +3,26 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Templates: solo lectura/escritura para usuarios autenticados
+    // Función para validar al admin
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == "huatucomagistral@gmail.com";
+    }
+
+    // Templates: solo lectura/escritura para el admin
     match /templates/{templateId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow read: if isAdmin();
+      allow write: if isAdmin();
     }
     
-    // Certificates: escritura solo autenticados, lectura pública (para la verificación)
+    // Certificates: escritura solo admin, lectura pública (para la verificación y dashboard de usuario)
     match /certificates/{certId} {
-      allow read: if true;  // Pública para verificación por QR
-      allow write: if request.auth != null;
+      allow read: if true;  // Pública para verificación por QR y lectura de usuario
+      allow write: if isAdmin();
+    }
+
+    // System counters: solo admin (para generar IDs secuenciales CM-YYYY-XXXXXX)
+    match /system/{docId} {
+      allow read, write: if isAdmin();
     }
   }
 }

@@ -3,8 +3,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-primary: #02367B;
-  --color-secondary: #0A192F;
+  --color-primary: #4338ca;
+  --color-secondary: #14b8a6;
 }
 
 :root {
@@ -21,15 +21,15 @@ body {
 
 /* ── Template editor utilities ──────────────────────────────────────── */
 .input {
-  @apply w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-[#02367B] transition-colors;
+  @apply w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-primary transition-colors;
 }
 
 .upload-zone {
-  @apply flex flex-col items-center justify-center w-full h-[80px] border-2 border-slate-200 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-blue-50 hover:border-[#02367B] transition-all;
+  @apply flex flex-col items-center justify-center w-full h-[80px] border-2 border-slate-200 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-indigo-50 hover:border-primary transition-all;
 }
 
 .btn-xs {
-  @apply flex items-center gap-1 text-xs font-semibold text-[#02367B] hover:text-[#012d68] bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg transition-colors;
+  @apply flex items-center gap-1 text-xs font-semibold text-primary hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg transition-colors;
 }
 
 .control-label {

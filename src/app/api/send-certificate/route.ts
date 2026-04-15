@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 
         <!-- Header -->
         <tr>
-          <td style="background:#02367B;padding:32px 40px;text-align:center;">
+          <td style="background:#4338ca;padding:32px 40px;text-align:center;">
             <p style="margin:0;color:#93c5fd;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:600;">Magistral</p>
             <h1 style="margin:8px 0 0;color:#ffffff;font-size:24px;font-weight:700;">Tu Certificado Oficial</h1>
           </td>
@@ -58,8 +58,8 @@ export async function POST(req: NextRequest) {
             <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.7;">
               Nos complace informarte que has completado exitosamente el programa:
             </p>
-            <div style="background:#f1f5f9;border-left:4px solid #02367B;border-radius:0 12px 12px 0;padding:16px 20px;margin:0 0 28px;">
-              <p style="margin:0;color:#02367B;font-weight:700;font-size:16px;">${courseName}</p>
+            <div style="background:#f1f5f9;border-left:4px solid #4338ca;border-radius:0 12px 12px 0;padding:16px 20px;margin:0 0 28px;">
+              <p style="margin:0;color:#4338ca;font-weight:700;font-size:16px;">${courseName}</p>
             </div>
             <p style="margin:0 0 32px;color:#475569;font-size:15px;line-height:1.7;">
               Tu certificado oficial está adjunto a este mensaje y también puedes descargarlo haciendo clic en el botón a continuación.
@@ -69,12 +69,12 @@ export async function POST(req: NextRequest) {
             <table cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
               <tr>
                 <td style="padding-right:12px;">
-                  <a href="${pdfUrl}" style="display:inline-block;background:#02367B;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:14px 24px;border-radius:10px;">
+                  <a href="${pdfUrl}" style="display:inline-block;background:#4338ca;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:14px 24px;border-radius:10px;">
                     ⬇ Descargar Certificado
                   </a>
                 </td>
                 <td>
-                  <a href="${verificationUrl}" style="display:inline-block;background:#f1f5f9;color:#02367B;text-decoration:none;font-size:14px;font-weight:600;padding:14px 24px;border-radius:10px;border:1px solid #e2e8f0;">
+                  <a href="${verificationUrl}" style="display:inline-block;background:#f1f5f9;color:#4338ca;text-decoration:none;font-size:14px;font-weight:600;padding:14px 24px;border-radius:10px;border:1px solid #e2e8f0;">
                     ✓ Verificar Autenticidad
                   </a>
                 </td>
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
             <div style="border-top:1px solid #f1f5f9;padding-top:24px;">
               <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.6;">
                 El certificado puede ser verificado en cualquier momento en:<br />
-                <a href="${verificationUrl}" style="color:#02367B;">${verificationUrl}</a>
+                <a href="${verificationUrl}" style="color:#4338ca;">${verificationUrl}</a>
               </p>
             </div>
           </td>

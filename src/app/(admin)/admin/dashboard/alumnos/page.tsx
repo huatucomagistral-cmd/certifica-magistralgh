@@ -82,7 +82,7 @@ export default function AlumnosPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por nombre, email o curso…"
-          className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#02367B]/20 focus:border-[#02367B] transition-all"
+          className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
         />
       </div>
 
@@ -90,7 +90,7 @@ export default function AlumnosPage() {
       <div className="space-y-3">
         {loading ? (
           <div className="p-10 text-center bg-white rounded-2xl border border-slate-100">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#02367B] mx-auto" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
             <p className="mt-3 text-sm text-slate-500">Cargando registros…</p>
           </div>
         ) : filtered.length === 0 ? (
@@ -117,8 +117,8 @@ export default function AlumnosPage() {
                   className="w-full flex items-center gap-4 px-6 py-4 hover:bg-slate-50/60 transition-colors text-left"
                 >
                   {/* Avatar */}
-                  <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-bold text-[#02367B]">
+                  <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm font-bold text-primary">
                       {alumno.name.charAt(0).toUpperCase()}
                     </span>
                   </div>
@@ -135,7 +135,7 @@ export default function AlumnosPage() {
 
                   {/* Badges */}
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#02367B] border border-blue-100">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-primary border border-indigo-100">
                       <FileText className="w-3 h-3" />
                       {alumno.certificates.length} cert{alumno.certificates.length !== 1 ? "s" : "."}
                     </span>
@@ -185,7 +185,7 @@ export default function AlumnosPage() {
                             href={`/verificar/${cert.id}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-1.5 text-slate-400 hover:text-[#02367B] hover:bg-blue-50 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-primary hover:bg-indigo-50 rounded-lg transition-colors"
                             title="Ver verificación"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
@@ -194,7 +194,7 @@ export default function AlumnosPage() {
                             href={cert.pdfUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-1.5 text-slate-400 hover:text-[#02367B] hover:bg-blue-50 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-primary hover:bg-indigo-50 rounded-lg transition-colors"
                             title="Descargar PDF"
                           >
                             <Download className="w-3.5 h-3.5" />

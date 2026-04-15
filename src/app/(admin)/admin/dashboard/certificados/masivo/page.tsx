@@ -13,8 +13,8 @@ import {
 import Link from "next/link";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
-import { v4 as uuidv4 } from "uuid";
 import { generateCertificatePDF } from "@/lib/generateCertificatePDF";
+import { generateOfficialCertId } from "@/lib/generateCertId";
 
 // ─── Keywords that are auto-filled ───────────────────────────────────────────
 const AUTO_KEYS = [
@@ -219,7 +219,7 @@ export default function BulkIssuePage() {
       const result: ResultRow = {
         ...row,
         fecha: normalizedDate || row.fecha,
-        _id: uuidv4(),
+        _id: crypto.randomUUID(),
         _status: isOk ? "pending" : "error",
         _error: isOk ? undefined : "Fecha inválida (usa AAAA-MM-DD o DD/MM/AAAA)",
         _raw: raw,
@@ -256,7 +256,7 @@ export default function BulkIssuePage() {
     for (const row of pending) {
       updateRow(row._id, { _status: "processing" });
       try {
-        const certId = uuidv4();
+        const certId = await generateOfficialCertId();
 
         // 1. Build dynamic extra fields map
         const extraFieldsMap: Record<string, string> = {};
@@ -379,7 +379,7 @@ export default function BulkIssuePage() {
               <select
                 value={selectedTemplateId}
                 onChange={(e) => setSelectedTemplateId(e.target.value)}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#02367B]/20 focus:border-[#02367B] bg-white appearance-none pr-9"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white appearance-none pr-9"
               >
                 <option value="">Elige una plantilla...</option>
                 {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -402,7 +402,7 @@ export default function BulkIssuePage() {
                       value={extraValues[field.id] || ""}
                       onChange={(e) => setExtraValues(prev => ({ ...prev, [field.id]: e.target.value }))}
                       placeholder={`Ej: "Por haber participado..."`}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#02367B]/50 resize-none"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
                     />
                   </div>
                 ))
@@ -423,7 +423,7 @@ export default function BulkIssuePage() {
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={!selectedTemplateId}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#02367B] hover:bg-[#012d68] text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-40"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary hover:bg-indigo-800 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-40"
               >
                 <Upload className="w-4 h-4" /> Subir CSV / Excel
               </button>
@@ -445,7 +445,7 @@ export default function BulkIssuePage() {
               {selectedTemplate && selectedTemplate.fields
                 .filter(f => !isAutoField(f.label))
                 .map(f => (
-                  <code key={f.id} className="px-1.5 py-0.5 bg-blue-50 text-[#02367B] rounded text-[10px]">
+                  <code key={f.id} className="px-1.5 py-0.5 bg-indigo-50 text-primary rounded text-[10px]">
                     {f.label.toLowerCase()} (opcional)
                   </code>
                 ))
@@ -473,7 +473,7 @@ export default function BulkIssuePage() {
               <button
                 onClick={handleGenerate}
                 disabled={!selectedTemplateId}
-                className="flex items-center gap-2 px-5 py-2.5 bg-[#02367B] hover:bg-[#012d68] text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 shadow-sm"
+                className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-indigo-800 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 shadow-sm"
               >
                 <Play className="w-4 h-4" />
                 Generar {totalPending} certificado{totalPending !== 1 ? "s" : ""}
@@ -485,7 +485,7 @@ export default function BulkIssuePage() {
           {running && (
             <div className="h-1.5 bg-slate-100">
               <div
-                className="h-full bg-[#02367B] transition-all duration-500"
+                className="h-full bg-primary transition-all duration-500"
                 style={{ width: `${((totalDone + totalError) / rows.length) * 100}%` }}
               />
             </div>
@@ -519,7 +519,7 @@ export default function BulkIssuePage() {
                         <div className="flex items-center gap-2">
                           <StatusBadge color="green"><CheckCircle2 className="w-3.5 h-3.5" />Generado</StatusBadge>
                           {row._pdfUrl && (
-                            <a href={row._pdfUrl} target="_blank" rel="noopener noreferrer" className="text-[#02367B] hover:underline text-xs">
+                            <a href={row._pdfUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs">
                               PDF
                             </a>
                           )}
@@ -562,7 +562,7 @@ function Badge({ color, children }: { color: string; children: React.ReactNode }
   const colors: Record<string, string> = {
     green:  "bg-emerald-50 text-emerald-700 border-emerald-100",
     red:    "bg-red-50 text-red-700 border-red-100",
-    blue:   "bg-blue-50 text-blue-700 border-blue-100",
+    blue:   "bg-indigo-50 text-indigo-700 border-indigo-100",
     yellow: "bg-amber-50 text-amber-700 border-amber-100",
     slate:  "bg-slate-50 text-slate-600 border-slate-100",
   };

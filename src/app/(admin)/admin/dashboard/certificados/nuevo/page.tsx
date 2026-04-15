@@ -8,8 +8,8 @@ import { db, storage } from "@/lib/firebase";
 import { Template } from "@/lib/types";
 import { ArrowLeft, Save, Mail, Sparkles } from "lucide-react";
 import Link from "next/link";
-import { v4 as uuidv4 } from "uuid";
 import { generateCertificatePDF } from "@/lib/generateCertificatePDF";
+import { generateOfficialCertId } from "@/lib/generateCertId";
 
 // ─── Keywords that are auto-filled (no need to show input) ────────────────────
 const AUTO_KEYS = [
@@ -72,7 +72,7 @@ export default function IssueCertificatePage() {
     setLoading(true);
     setStatus("Generando PDF...");
     try {
-      const certId = uuidv4();
+      const certId = await generateOfficialCertId();
       const baseUrl = window.location.origin;
 
       // Build extraFields map: { "intro": "texto intro", "descripción": "...", ... }
@@ -169,7 +169,7 @@ export default function IssueCertificatePage() {
           <select
             value={selectedTemplateId}
             onChange={(e) => setSelectedTemplateId(e.target.value)}
-            className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#02367B]/20 focus:border-[#02367B] bg-white"
+            className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
           >
             <option value="">Seleccione una plantilla...</option>
             {templates.map((t) => (
@@ -196,7 +196,7 @@ export default function IssueCertificatePage() {
                       value={recipientName}
                       onChange={(e) => setRecipientName(e.target.value)}
                       placeholder="Ej. Juan Diego Pérez López"
-                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#02367B]/20 focus:border-[#02367B]"
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     />
                   </div>
                 );
@@ -215,7 +215,7 @@ export default function IssueCertificatePage() {
                     value={courseName}
                     onChange={(e) => setCourseName(e.target.value)}
                     placeholder="Ej. Taller de Liderazgo Empresarial"
-                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#02367B]/20 focus:border-[#02367B]"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
                 </div>
               );
@@ -232,7 +232,7 @@ export default function IssueCertificatePage() {
                     type="date"
                     value={issueDate}
                     onChange={(e) => setIssueDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#02367B]/20 focus:border-[#02367B]"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
                 </div>
               );
@@ -249,7 +249,7 @@ export default function IssueCertificatePage() {
                   value={extraValues[field.id] ?? ""}
                   onChange={(e) => setExtraValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
                   placeholder={`Ingresa el contenido para "${field.label}"...`}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#02367B]/20 focus:border-[#02367B] resize-none"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
                 />
               </div>
             );
@@ -268,7 +268,7 @@ export default function IssueCertificatePage() {
               value={recipientEmail}
               onChange={(e) => setRecipientEmail(e.target.value)}
               placeholder="alumno@email.com"
-              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#02367B]/20 focus:border-[#02367B]"
+              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             />
           </div>
         )}
@@ -278,7 +278,7 @@ export default function IssueCertificatePage() {
           <button
             onClick={handleIssue}
             disabled={loading || !selectedTemplateId || !recipientName || !courseName}
-            className="w-full flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-[#02367B] rounded-xl hover:bg-[#012d68] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-primary rounded-xl hover:bg-indigo-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
           >
             <Save className="w-4 h-4" />
             {loading ? (status ?? "Procesando...") : "Emitir Certificado Oficial"}

@@ -103,7 +103,7 @@ export default function TemplatesPage() {
         </div>
         <Link
           href="/admin/dashboard/templates/nuevo"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-[#02367B] rounded-xl hover:bg-[#012d68] transition-colors shadow-sm"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-primary rounded-xl hover:bg-indigo-800 transition-colors shadow-sm"
         >
           <Plus className="w-4 h-4" />
           Nueva Plantilla
@@ -113,7 +113,7 @@ export default function TemplatesPage() {
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-10 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#02367B] mx-auto" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
             <p className="mt-3 text-sm text-slate-500">Cargando plantillas...</p>
           </div>
         ) : templates.length === 0 ? (
@@ -127,7 +127,7 @@ export default function TemplatesPage() {
             </p>
             <Link
               href="/admin/dashboard/templates/nuevo"
-              className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-[#02367B] bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+              className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-primary bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-colors"
             >
               <Plus className="w-4 h-4" />
               Crear primera plantilla
@@ -160,7 +160,7 @@ export default function TemplatesPage() {
                                 if (e.key === "Enter") saveRename(template.id);
                                 if (e.key === "Escape") cancelRename();
                               }}
-                              className="border border-[#02367B] rounded-lg px-2.5 py-1 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#02367B]/20 w-44"
+                              className="border border-primary rounded-lg px-2.5 py-1 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/20 w-44"
                               disabled={savingName}
                             />
                             <button onClick={() => saveRename(template.id)} disabled={savingName}
@@ -176,7 +176,7 @@ export default function TemplatesPage() {
                           <div className="flex items-center gap-1.5 group/name">
                             <span className="font-semibold text-slate-800">{template.name}</span>
                             <button onClick={() => startRename(template)}
-                              className="opacity-0 group-hover/name:opacity-100 p-1 text-slate-300 hover:text-[#02367B] hover:bg-blue-50 rounded-md transition-all" title="Renombrar">
+                              className="opacity-0 group-hover/name:opacity-100 p-1 text-slate-300 hover:text-primary hover:bg-indigo-50 rounded-md transition-all" title="Renombrar">
                               <Pencil className="w-3 h-3" />
                             </button>
                           </div>
@@ -201,7 +201,7 @@ export default function TemplatesPage() {
                         {/* Edit */}
                         <Link
                           href={`/admin/dashboard/templates/${template.id}/editar`}
-                          className="p-2 text-slate-400 hover:text-[#02367B] hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-2 text-slate-400 hover:text-primary hover:bg-indigo-50 rounded-lg transition-colors"
                           title="Editar plantilla"
                         >
                           <Edit2 className="w-4 h-4" />
@@ -211,7 +211,7 @@ export default function TemplatesPage() {
                           href={template.bgImageUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-2 text-slate-400 hover:text-[#02367B] hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-2 text-slate-400 hover:text-primary hover:bg-indigo-50 rounded-lg transition-colors"
                           title={isBgPdf(template.bgImageUrl) ? "Abrir PDF de fondo" : "Ver imagen de fondo"}
                         >
                           <Eye className="w-4 h-4" />
