@@ -166,8 +166,8 @@ export async function generateCertificatePDF(params: GeneratePDFParams): Promise
     const bgBytes = await bgResponse.arrayBuffer();
 
     const bgPdfDoc = await PDFDocument.load(bgBytes);
-    const [copiedPage] = await pdfDoc.copyPages(bgPdfDoc, [0]);
-    pdfDoc.addPage(copiedPage);
+    const copiedPages = await pdfDoc.copyPages(bgPdfDoc, bgPdfDoc.getPageIndices());
+    copiedPages.forEach((p) => pdfDoc.addPage(p));
 
     page = pdfDoc.getPages()[0];
     const size = page.getSize();
@@ -196,55 +196,90 @@ export async function generateCertificatePDF(params: GeneratePDFParams): Promise
     day: "2-digit", month: "long", year: "numeric",
   });
   const dataMap: Record<string, string> = {
+    // Claves dataKey estandarizadas (nuevo sistema)
+    "alumno_nombre":  recipientName,
+    "curso_nombre":   courseName,
+    "fecha_emision":  dateFormatted,
+    // Claves legacy por label (compatibilidad con plantillas antiguas)
     "nombre del alumno": recipientName,
-    "alumno": recipientName,
-    "nombre": recipientName,
-    "curso": courseName,
-    "nombre del curso": courseName,
-    "fecha": dateFormatted,
-    "fecha de emisión": dateFormatted,
-    // Merge custom extra fields (keys are already lowercased)
+    "alumno":            recipientName,
+    "nombre":            recipientName,
+    "curso":             courseName,
+    "nombre del curso":  courseName,
+    "fecha":             dateFormatted,
+    "fecha de emisión":  dateFormatted,
+    // Merge custom extra fields (keys are dataKey keys)
     ...extraFields,
   };
 
   // ── 3. Draw text fields ─────────────────────────────────────────────────────
   for (const field of template.fields) {
+    const targetPageNum = (field.page ?? 1) - 1;
+    const targetPage = pdfDoc.getPages()[targetPageNum] || pdfDoc.getPages()[0];
+
+    // Usar las dimensiones de la página destino (no siempre igual a página 1)
+    const tPageSize = targetPage.getSize();
+    const tPageW = tPageSize.width;
+    const tPageH = tPageSize.height;
+
     const { r, g, b } = hexToRgb(field.color);
     const labelLower = field.label.toLowerCase();
 
-    let textToDraw = field.label;
+    let textToDraw = field.label; // default: mostrar el label literal
     
-    // Sort keys by length descending to match more specific keys first
-    const mapKeys = Object.keys(dataMap).sort((a, b) => b.length - a.length);
-    for (const key of mapKeys) {
-      if (labelLower.includes(key)) { textToDraw = dataMap[key]; break; }
+    // Prioridad 1: dataKey explícito del campo
+    if (field.dataKey && dataMap[field.dataKey] !== undefined) {
+      textToDraw = dataMap[field.dataKey];
+    } else {
+      // Prioridad 2: fallback por label — SOLO si el campo es "corto" (≤4 palabras)
+      // y coincide EXACTAMENTE con una clave del mapa, no si la contiene como substring
+      // (para evitar que campos estáticos como "Por haber participado en el curso..." sean reemplazados)
+      const labelWords = field.label.trim().split(/\s+/);
+      if (labelWords.length <= 4) {
+        const mapKeys = Object.keys(dataMap).sort((a, b) => b.length - a.length);
+        for (const key of mapKeys) {
+          if (labelLower === key || labelLower.startsWith(key + " ") || labelLower.endsWith(" " + key)) {
+            textToDraw = dataMap[key];
+            break;
+          }
+        }
+      }
     }
 
     const font = await getFont(pdfDoc, field.fontFamily ?? "Helvetica", !!field.bold, !!field.italic, baseUrl);
 
-    // Force single line for recipient name fields
-    const isRecipientName = labelLower.includes("alumno") || labelLower.includes("nombre");
-    const maxWidth = (field.widthRatio && !isRecipientName) ? field.widthRatio * pageW : undefined;
-    
-    const lines = wrapText(textToDraw, font, field.fontSize, maxWidth);
+    // Dynamic Font Scaling for Recipient Names
+    let adjustedFontSize = field.fontSize;
+    const isRecipientName = field.dataKey === "alumno_nombre" 
+      || (field.dataKey == null && (labelLower.includes("alumno") || labelLower === "nombre"));
+    const maxWidth = field.widthRatio ? field.widthRatio * tPageW : undefined;
+
+    if (maxWidth && isRecipientName) {
+      // Reduce font size until it fits within maxWidth (min 8px)
+      while (adjustedFontSize > 8 && font.widthOfTextAtSize(textToDraw, adjustedFontSize) > maxWidth) {
+        adjustedFontSize -= 0.5;
+      }
+    }
+
+    const lines = wrapText(textToDraw, font, adjustedFontSize, isRecipientName ? undefined : maxWidth);
     
     // boundingBoxWidth for alignment/justification
-    const boundingBoxWidth = maxWidth ?? font.widthOfTextAtSize(textToDraw, field.fontSize);
+    const boundingBoxWidth = maxWidth ?? font.widthOfTextAtSize(textToDraw, adjustedFontSize);
     
-    const anchorX = field.xRatio * pageW;
-    const anchorY = (1 - field.yRatio) * pageH;
+    const anchorX = field.xRatio * tPageW;
+    const anchorY = (1 - field.yRatio) * tPageH;
     const align   = field.align ?? "left";
     
     const boxLeftX = align === "center" ? anchorX - boundingBoxWidth / 2
                    : align === "right"  ? anchorX - boundingBoxWidth
                    : anchorX;
 
-    const lineHeight = field.fontSize * 1.2; // Estandarizado a 1.2 para paridad con el editor
-    const spaceWidth = font.widthOfTextAtSize(" ", field.fontSize);
+    const lineHeight = adjustedFontSize * 1.2; // Estandarizado a 1.2 para paridad con el editor
+    const spaceWidth = font.widthOfTextAtSize(" ", adjustedFontSize);
     
     lines.forEach((lineWords, lineIndex) => {
       const lineText = lineWords.join(" ");
-      const lineWidth = font.widthOfTextAtSize(lineText, field.fontSize);
+      const lineWidth = font.widthOfTextAtSize(lineText, adjustedFontSize);
       
       let lineX = boxLeftX;
       let extraSpacePerSlot = 0;
@@ -264,8 +299,8 @@ export async function generateCertificatePDF(params: GeneratePDFParams): Promise
       // Vertical centering: The whole block is centered vertically on anchorY.
       // We use font metrics (Ascent/Descent) to find the visual center displacement relative to baseline.
       const blockCenterBaselineOffset = ((lines.length - 1) / 2 - lineIndex) * lineHeight;
-      const ascent = font.heightAtSize(field.fontSize, { descender: false });
-      const heightWithDescender = font.heightAtSize(field.fontSize);
+      const ascent = font.heightAtSize(adjustedFontSize, { descender: false });
+      const heightWithDescender = font.heightAtSize(adjustedFontSize);
       const descent = ascent - heightWithDescender;
       const fontVerticalCenterAdjustment = (ascent + descent) / 2;
       const lineY = anchorY + blockCenterBaselineOffset - fontVerticalCenterAdjustment;
@@ -274,24 +309,24 @@ export async function generateCertificatePDF(params: GeneratePDFParams): Promise
       if (align === "justify" && extraSpacePerSlot > 0) {
         let currentWordX = lineX;
         for (const word of lineWords) {
-          page.drawText(word, { x: currentWordX, y: lineY, size: field.fontSize, font, color: rgb(r, g, b) });
-          currentWordX += font.widthOfTextAtSize(word, field.fontSize) + spaceWidth + extraSpacePerSlot;
+          targetPage.drawText(word, { x: currentWordX, y: lineY, size: adjustedFontSize, font, color: rgb(r, g, b) });
+          currentWordX += font.widthOfTextAtSize(word, adjustedFontSize) + spaceWidth + extraSpacePerSlot;
         }
       } else {
-        page.drawText(lineText, { x: lineX, y: lineY, size: field.fontSize, font, color: rgb(r, g, b) });
+        targetPage.drawText(lineText, { x: lineX, y: lineY, size: adjustedFontSize, font, color: rgb(r, g, b) });
       }
 
       // ── Underline ─────────────────────────────────────────────────────────
       if (field.underline) {
-        const thickness = Math.max(0.5, field.fontSize * 0.05);
-        const underlineY = lineY - (field.fontSize * 0.08);
+        const thickness = Math.max(0.5, adjustedFontSize * 0.05);
+        const underlineY = lineY - (adjustedFontSize * 0.08);
         
         // In justified lines, the underline should span the entire bounding box
         const drawWidth = (align === "justify" && lineIndex < lines.length - 1 && lineWords.length > 1) 
           ? boundingBoxWidth 
           : lineWidth;
 
-        page.drawLine({
+        targetPage.drawLine({
           start: { x: lineX, y: underlineY },
           end: { x: lineX + drawWidth, y: underlineY },
           thickness: thickness,
@@ -307,13 +342,50 @@ export async function generateCertificatePDF(params: GeneratePDFParams): Promise
   const qrImageBytes = Uint8Array.from(atob(qrDataUrl.split(",")[1]), (c) => c.charCodeAt(0));
   const qrImage = await pdfDoc.embedPng(qrImageBytes);
 
-  const qrSize = (template.qrSizeRatio ?? 0.12) * pageW;
-  const qrPdfX = (template.qrXRatio ?? 0.88) * pageW - qrSize / 2;
-  const qrPdfY = (1 - (template.qrYRatio ?? 0.92)) * pageH - qrSize / 2;
+  // QR usa las dimensiones de la página destino del QR
+  const targetQrPageNum = (template.qrPage ?? 1) - 1;
+  const qrTargetPage = pdfDoc.getPages()[targetQrPageNum] || pdfDoc.getPages()[0];
+  const qrPageSize = qrTargetPage.getSize();
+  const qrPageW = qrPageSize.width;
+  const qrPageH = qrPageSize.height;
 
-  page.drawImage(qrImage, { x: qrPdfX, y: qrPdfY, width: qrSize, height: qrSize });
+  const qrSize = (template.qrSizeRatio ?? 0.12) * qrPageW;
+  const qrPdfX = (template.qrXRatio ?? 0.88) * qrPageW - qrSize / 2;
+  const qrPdfY = (1 - (template.qrYRatio ?? 0.92)) * qrPageH - qrSize / 2;
 
-  // ── 5. Save ─────────────────────────────────────────────────────────────────
+  qrTargetPage.drawImage(qrImage, { x: qrPdfX, y: qrPdfY, width: qrSize, height: qrSize });
+
+  // ── 5. Draw verification URL text (if configured) ───────────────────────────
+  if (template.verifyUrlVisible !== false && template.verifyUrlXRatio !== undefined && template.verifyUrlYRatio !== undefined) {
+    const vuPageNum  = (template.verifyUrlPage ?? 1) - 1;
+    const vuPage     = pdfDoc.getPages()[vuPageNum] || pdfDoc.getPages()[0];
+    const vuPageSize = vuPage.getSize();
+    const vuPageW    = vuPageSize.width;
+    const vuPageH    = vuPageSize.height;
+
+    const vuFontSize = template.verifyUrlFontSize ?? 7;
+    const vuColor    = hexToRgb(template.verifyUrlColor ?? "#555555");
+    const vuFont     = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+    const vuText  = verificationUrl;
+    const vuAncX  = template.verifyUrlXRatio * vuPageW;
+    const vuAncY  = (1 - template.verifyUrlYRatio) * vuPageH;
+
+    // Center the text on the anchor point
+    const vuTextW = vuFont.widthOfTextAtSize(vuText, vuFontSize);
+    const vuX     = vuAncX - vuTextW / 2;
+    const vuAscent = vuFont.heightAtSize(vuFontSize, { descender: false });
+    const vuY      = vuAncY - vuAscent / 2;
+
+    vuPage.drawText(vuText, {
+      x: vuX, y: vuY,
+      size: vuFontSize,
+      font: vuFont,
+      color: rgb(vuColor.r, vuColor.g, vuColor.b),
+    });
+  }
+
+  // ── 6. Save ─────────────────────────────────────────────────────────────────
   const pdfBytes = await pdfDoc.save();
   return new Blob([pdfBytes as unknown as BlobPart], { type: "application/pdf" });
 }

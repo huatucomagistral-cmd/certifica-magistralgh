@@ -3,14 +3,15 @@
 import { useState, useRef, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
 import { Template, TemplateField, TextAlign } from "@/lib/types";
 import {
   ArrowLeft, Save, Trash2, FileText,
   MousePointer, QrCode, Check, Bold, Italic, Underline,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Minus, Plus as PlusIcon, ChevronUp, ChevronDown,
-  Loader2,
+  Loader2, Upload, Link2,
 } from "lucide-react";
 import Link from "next/link";
 import { v4 as uuidv4 } from "uuid";
@@ -50,6 +51,21 @@ function getAlignTransform(align: TextAlign): string {
   return "translateY(-50%)";
 }
 
+/** Devuelve una clave semántica estable según el label del campo. */
+function resolveDataKey(label: string, id: string): string {
+  const words = label.trim().split(/\s+/);
+  // Si el label tiene más de 4 palabras, es texto estático (no dato dinámico)
+  if (words.length > 4) return `custom_${id}`;
+  const l = label.toLowerCase();
+  if (l.includes("alumno") || (l.includes("nombre") && !l.includes("curso"))) return "alumno_nombre";
+  if (l.includes("curso")) return "curso_nombre";
+  if (l.includes("fecha")) return "fecha_emision";
+  if (l.includes("dni") || l.includes("documento")) return "alumno_dni";
+  if (l.includes("nota") || l.includes("calificacion") || l.includes("calificación")) return "calificacion";
+  if (l.includes("hora") || l.includes("credito") || l.includes("crédito")) return "horas";
+  return `custom_${id}`;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function EditTemplatePage({ params }: { params: Promise<{ id: string }> }) {
@@ -59,13 +75,17 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
   const [loadingTemplate, setLoadingTemplate] = useState(true);
   const [loadingBg, setLoadingBg]             = useState(false);
   const [saving, setSaving]                   = useState(false);
+  const [replacingBg, setReplacingBg]         = useState(false);
+  const [showExitModal, setShowExitModal]     = useState(false);
   const [errorMsg, setErrorMsg]               = useState<string | null>(null);
+  const bgFileInputRef = useRef<HTMLInputElement>(null);
 
   // Template data
   const [name, setName]             = useState("");
   const [bgImageUrl, setBgImageUrl] = useState("");
   const [isPdfBg, setIsPdfBg]       = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [activePage, setActivePage] = useState<number>(1);
   const [previewScale, setPreviewScale] = useState(1);
   const [pdfNaturalWidth, setPdfNaturalWidth] = useState<number | null>(null);
 
@@ -73,9 +93,14 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
 
   // Active element
   const [activeId, setActiveId] = useState<string | "qr" | null>(null);
+  const dragOffsetRef = useRef<{x: number, y: number} | null>(null);
   
   // Drag properties
   const [isDragging, setIsDragging] = useState(false);
+  // Refs a cada contenedor de página para calcular posición global en el drag
+  const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const activeIdRef = useRef<string | "qr" | null>(null);
+  const isDraggingRef = useRef(false);
 
   // Fields
   const [fields, setFields] = useState<EditableField[]>([]);
@@ -84,6 +109,14 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
   const [qrXRatio,    setQrXRatio]    = useState<number>(0.88);
   const [qrYRatio,    setQrYRatio]    = useState<number>(0.92);
   const [qrSizeRatio, setQrSizeRatio] = useState<number>(0.12);
+  const [qrPage,      setQrPage]      = useState<number>(1);
+
+  // Enlace de verificación
+  const [vuXRatio,   setVuXRatio]   = useState<number | undefined>(undefined);
+  const [vuYRatio,   setVuYRatio]   = useState<number | undefined>(undefined);
+  const [vuPage,     setVuPage]     = useState<number>(1);
+  const [vuFontSize, setVuFontSize] = useState<number>(7);
+  const [vuColor,    setVuColor]    = useState<string>("#555555");
 
   // ── Load Google Fonts ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -92,6 +125,61 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
     link.href = "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Cinzel:wght@400;700&family=Great+Vibes&family=EB+Garamond:ital,wght@0,400;0,700;1,400;1,700&family=Lora:ital,wght@0,400;0,700;1,400;1,700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400;1,700&family=Montserrat:ital,wght@0,400;0,700;1,400;1,700&family=Raleway:ital,wght@0,400;0,700;1,400;1,700&family=Open+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Dancing+Script:wght@400;700&family=Pinyon+Script&family=Old+Standard+TT:ital,wght@0,400;0,700;1,400;1,700&family=Oswald:wght@400;700&display=swap";
     document.head.appendChild(link);
     return () => { document.head.removeChild(link); };
+  }, []);
+
+  // Sync refs with state
+  useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
+  useEffect(() => { isDraggingRef.current = isDragging; }, [isDragging]);
+
+  // ── Global drag handler (evita cancelaciones al cruzar páginas) ────────────
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current || !activeIdRef.current) return;
+
+      for (let i = 0; i < pageRefs.current.length; i++) {
+        const pageEl = pageRefs.current[i];
+        if (!pageEl) continue;
+        const rect = pageEl.getBoundingClientRect();
+        if (e.clientX >= rect.left && e.clientX <= rect.right &&
+            e.clientY >= rect.top  && e.clientY <= rect.bottom) {
+          const pageNum = i + 1;
+          let xRatio = (e.clientX - rect.left) / rect.width;
+          let yRatio = (e.clientY - rect.top)  / rect.height;
+
+          if (dragOffsetRef.current) {
+            xRatio -= dragOffsetRef.current.x;
+            yRatio -= dragOffsetRef.current.y;
+          }
+
+          if (activeIdRef.current === "qr") {
+            setQrXRatio(xRatio);
+            setQrYRatio(yRatio);
+            setQrPage(pageNum);
+          } else if (activeIdRef.current === "verifyUrl") {
+            setVuXRatio(xRatio);
+            setVuYRatio(yRatio);
+            setVuPage(pageNum);
+          } else {
+            setFields((prev) => prev.map((f) => f.id === activeIdRef.current ? { ...f, xRatio, yRatio, page: pageNum } : f));
+          }
+          break;
+        }
+      }
+    };
+
+    const onMouseUp = () => {
+      setIsDragging(false);
+      isDraggingRef.current = false;
+      dragOffsetRef.current = null;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Fetch template from Firestore ──────────────────────────────────────────
@@ -104,10 +192,24 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
         const data = snap.data() as Template;
         setName(data.name);
         setBgImageUrl(data.bgImageUrl);
-        setFields(data.fields);
+        // Normalizar campos: asignar dataKey si no existe (plantillas antiguas)
+        const normalizedFields = (data.fields ?? []).map((f) => ({
+          ...f,
+          dataKey: f.dataKey ?? resolveDataKey(f.label, f.id),
+        }));
+        setFields(normalizedFields);
         setQrXRatio(data.qrXRatio ?? 0.88);
         setQrYRatio(data.qrYRatio ?? 0.92);
         setQrSizeRatio(data.qrSizeRatio ?? 0.12);
+        setQrPage(data.qrPage ?? 1);
+        // Enlace de verificación
+        if (data.verifyUrlXRatio !== undefined) {
+          setVuXRatio(data.verifyUrlXRatio);
+          setVuYRatio(data.verifyUrlYRatio);
+          setVuPage(data.verifyUrlPage ?? 1);
+          setVuFontSize(data.verifyUrlFontSize ?? 7);
+          setVuColor(data.verifyUrlColor ?? "#555555");
+        }
 
         // Determine if PDF
         const pdf = data.bgImageUrl.toLowerCase().includes(".pdf");
@@ -137,26 +239,31 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
         const pdfjsLib = await import("pdfjs-dist");
         pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
         const pdf     = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        const pdfPage = await pdf.getPage(1);
-
-        const viewport1x = pdfPage.getViewport({ scale: 1 });
-        setPdfNaturalWidth(viewport1x.width);
-
-        const renderScale = 2;
-        const viewport    = pdfPage.getViewport({ scale: renderScale });
-        const canvas      = document.createElement("canvas");
-        canvas.width  = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext("2d")!;
-        await pdfPage.render({ canvasContext: ctx, canvas, viewport }).promise;
-        setImagePreview(canvas.toDataURL("image/png"));
+        const numPages = pdf.numPages;
+        const previews: string[] = [];
+        for (let i = 1; i <= Math.min(2, numPages); i++) {
+          const pdfPage = await pdf.getPage(i);
+          if (i === 1) {
+            const viewport1x = pdfPage.getViewport({ scale: 1 });
+            setPdfNaturalWidth(viewport1x.width);
+          }
+          const renderScale = 2;
+          const viewport    = pdfPage.getViewport({ scale: renderScale });
+          const canvas      = document.createElement("canvas");
+          canvas.width  = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext("2d")!;
+          await pdfPage.render({ canvasContext: ctx, canvas, viewport }).promise;
+          previews.push(canvas.toDataURL("image/png"));
+        }
+        setImagePreviews(previews);
       } else {
         setPdfNaturalWidth(null);
-        setImagePreview(url);
+        setImagePreviews([url]);
       }
     } catch (e) {
       console.error("Error rendering background:", e);
-      if (!isPdf) setImagePreview(url);
+      if (!isPdf) setImagePreviews([url]);
     } finally {
       setLoadingBg(false);
     }
@@ -170,8 +277,9 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
     }
   };
 
-  const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleImageClick = (e: React.MouseEvent<HTMLDivElement>, pageNum: number) => {
     if (!activeId) return;
+
     const rect   = e.currentTarget.getBoundingClientRect();
     const xRatio = (e.clientX - rect.left) / rect.width;
     const yRatio = (e.clientY - rect.top)  / rect.height;
@@ -179,19 +287,28 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
     if (activeId === "qr") {
       setQrXRatio(xRatio);
       setQrYRatio(yRatio);
-      setActiveId(null);
+      setQrPage(pageNum);
+      // Mantener seleccionado para permitir edición
+    } else if (activeId === "verifyUrl") {
+      setVuXRatio(xRatio);
+      setVuYRatio(yRatio);
+      setVuPage(pageNum);
     } else {
-      setFields((prev) => prev.map((f) => f.id === activeId ? { ...f, xRatio, yRatio } : f));
-      setActiveId(null);
+      setFields((prev) => prev.map((f) => f.id === activeId ? { ...f, xRatio, yRatio, page: pageNum } : f));
+      const idx = fields.findIndex((f) => f.id === activeId);
+      const next = fields.find((f, i) => i > idx && f.xRatio === undefined);
+      setActiveId(next?.id ?? null);
     }
   };
 
   // ── Field helpers ──────────────────────────────────────────────────────────
   const addField = () => {
     const newId = uuidv4();
+    const label = "Nuevo Campo";
     setFields((p) => [
       ...p,
-      { id: newId, label: "Nuevo Campo", fontSize: 18, color: "#000000", fontFamily: "Helvetica", bold: false, italic: false, align: "left", xRatio: 0.5, yRatio: 0.5 },
+      // Sin coordenadas iniciales: el usuario hace clic en el certificado para posicionarlo
+      { id: newId, label, dataKey: resolveDataKey(label, newId), fontSize: 18, color: "#000000", fontFamily: "Helvetica", bold: false, italic: false, align: "left", page: 1 },
     ]);
     setActiveId(newId);
   };
@@ -202,7 +319,15 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
   };
 
   const updateField = (fid: string, key: keyof EditableField, value: unknown) => {
-    setFields((p) => p.map((f) => f.id === fid ? { ...f, [key]: value } : f));
+    setFields((p) => p.map((f) => {
+      if (f.id !== fid) return f;
+      const updated = { ...f, [key]: value };
+      // Si cambia el label, recalcular el dataKey automáticamente
+      if (key === "label" && typeof value === "string") {
+        updated.dataKey = resolveDataKey(value, fid);
+      }
+      return updated;
+    }));
   };
 
   const moveField = (index: number, direction: "up" | "down") => {
@@ -212,6 +337,38 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
     const [moved] = newFields.splice(index, 1);
     newFields.splice(newIndex, 0, moved);
     setFields(newFields);
+  };
+
+  // ── Replace background ───────────────────────────────────────────────────
+  const handleBgFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    if (!file.type.startsWith("image/") && !isPdf) {
+      alert("Solo se permiten PNG, JPG o PDF.");
+      return;
+    }
+    setReplacingBg(true);
+    try {
+      const ext  = file.name.split(".").pop()?.toLowerCase() ?? "png";
+      const path = `templates/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const storageRef = ref(storage, path);
+      await uploadBytes(storageRef, file);
+      const newUrl = await getDownloadURL(storageRef);
+
+      // Update Firestore immediately
+      await updateDoc(doc(db, "templates", id), { bgImageUrl: newUrl, updatedAt: Date.now() });
+
+      setBgImageUrl(newUrl);
+      setIsPdfBg(isPdf);
+      await renderBackground(newUrl, isPdf);
+    } catch (err) {
+      console.error(err);
+      alert("Error al subir el nuevo fondo.");
+    } finally {
+      setReplacingBg(false);
+    }
   };
 
   // ── Save ──────────────────────────────────────────────────────────────────
@@ -226,6 +383,16 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
         qrXRatio,
         qrYRatio,
         qrSizeRatio,
+        qrPage,
+        // Enlace de verificación
+        ...(vuXRatio !== undefined && vuYRatio !== undefined ? {
+          verifyUrlXRatio:   vuXRatio,
+          verifyUrlYRatio:   vuYRatio,
+          verifyUrlPage:     vuPage,
+          verifyUrlFontSize: vuFontSize,
+          verifyUrlColor:    vuColor,
+          verifyUrlVisible:  true,
+        } : { verifyUrlVisible: false }),
         updatedAt:   Date.now(),
       });
       router.push("/admin/dashboard/templates");
@@ -268,16 +435,15 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
         {/* Row 1: Header & Global Actions */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Link href="/admin/dashboard/templates" className="p-2 hover:bg-white rounded-xl text-slate-500 border border-transparent hover:border-slate-100 transition-all">
+            <button onClick={() => setShowExitModal(true)} className="p-2 hover:bg-white rounded-xl text-slate-500 border border-transparent hover:border-slate-100 transition-all">
               <ArrowLeft className="w-5 h-5" />
-            </Link>
+            </button>
             <div>
               <h1 className="text-xl font-bold text-slate-900">Editar Plantilla</h1>
               <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider text-emerald-600">Modo Edición</p>
             </div>
           </div>
 
-          {/* Basic Info Inline */}
           <div className="flex flex-1 max-w-2xl items-center gap-4 bg-white p-2 rounded-xl border border-slate-100 shadow-sm ml-0 md:ml-8">
             <div className="flex-1 flex items-center gap-2 px-2 border-r border-slate-100">
               <span className="text-[10px] font-bold text-slate-400 uppercase whitespace-nowrap">Nombre:</span>
@@ -289,11 +455,36 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
                 className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-slate-700 placeholder:text-slate-300"
               />
             </div>
-            <div className="flex items-center gap-2 px-2 bg-slate-50 rounded-lg py-1 border border-slate-100 max-w-[200px] overflow-hidden">
+            
+            {/* Page Toggle removed for stacked view */}
+            
+            <div className="flex items-center gap-2 px-2 bg-slate-50 rounded-lg py-1 border border-slate-100 ml-2">
               <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="text-[10px] font-semibold text-slate-500 truncate" title={bgImageUrl}>
-                {isPdfBg ? "Fondo PDF Vectorial" : "Fondo Imagen"}
+              <span className="text-[10px] font-semibold text-slate-500 truncate max-w-[120px]" title={bgImageUrl}>
+                {isPdfBg ? `PDF (${imagePreviews.length} pág)` : "Imagen"}
               </span>
+              {/* Reemplazar fondo */}
+              <button
+                type="button"
+                onClick={() => bgFileInputRef.current?.click()}
+                disabled={replacingBg}
+                className="ml-1 flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold text-indigo-600 bg-indigo-50 rounded-md hover:bg-indigo-100 transition-colors disabled:opacity-50 shrink-0"
+                title="Reemplazar fondo"
+              >
+                {replacingBg ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Upload className="w-3 h-3" />
+                )}
+                {replacingBg ? "Subiendo..." : "Cambiar"}
+              </button>
+              <input
+                ref={bgFileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,application/pdf,.pdf"
+                className="hidden"
+                onChange={handleBgFileChange}
+              />
             </div>
           </div>
 
@@ -354,6 +545,21 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
             <QrCode className="w-3.5 h-3.5" />
             <span className="text-xs font-semibold">QR Code</span>
           </button>
+
+          {/* Botón enlace de verificación */}
+          <button
+            onClick={() => setActiveId(activeId === "verifyUrl" ? null : "verifyUrl")}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all shrink-0 ${
+              activeId === "verifyUrl"
+                ? "bg-primary border-primary text-white shadow-md ring-2 ring-indigo-200"
+                : vuXRatio !== undefined
+                  ? "bg-emerald-50 border-emerald-100 text-emerald-700 shadow-sm"
+                  : "bg-white border-slate-100 text-slate-600 hover:border-slate-300"
+            }`}
+          >
+            <Link2 className="w-3.5 h-3.5" />
+            <span className="text-xs font-semibold">URL Verificación</span>
+          </button>
         </div>
 
         {/* Row 3: Inspector (Always Visible) */}
@@ -392,6 +598,34 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
                  <span className="text-[10px] font-bold text-primary uppercase tracking-tighter">Editando QR</span>
               </div>
             </div>
+          ) : activeId === "verifyUrl" ? (
+            <div className="flex items-center gap-6 px-2 whitespace-nowrap">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Tamaño fuente:</span>
+                <NumericControl value={vuFontSize} onChange={setVuFontSize} min={5} max={14} suffix="pt" className="w-20" />
+              </div>
+              <div className="h-6 w-px bg-slate-100" />
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Color:</span>
+                <input type="color" value={vuColor} onChange={(e) => setVuColor(e.target.value)}
+                  className="w-7 h-7 rounded cursor-pointer border-0 p-0" />
+              </div>
+              <div className="h-6 w-px bg-slate-100" />
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Posición Manual</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-slate-400">X:</span>
+                  <NumericControl value={vuXRatio !== undefined ? +(vuXRatio * 100).toFixed(1) : 50} onChange={(v) => setVuXRatio(v / 100)} step={0.5} min={0} max={100} suffix="%" className="w-24" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-slate-400">Y:</span>
+                  <NumericControl value={vuYRatio !== undefined ? +(vuYRatio * 100).toFixed(1) : 95} onChange={(v) => setVuYRatio(v / 100)} step={0.5} min={0} max={100} suffix="%" className="w-24" />
+                </div>
+              </div>
+              <div className="ml-auto px-4 bg-indigo-50 py-1 rounded-full border border-indigo-100">
+                <span className="text-[10px] font-bold text-primary uppercase tracking-tighter">Editando URL Verificación</span>
+              </div>
+            </div>
           ) : (
             <div className="flex items-center gap-4 px-2 whitespace-nowrap w-full">
               {(() => {
@@ -399,7 +633,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
                 if (!field) return null;
                 return (
                   <>
-                    {/* Group: Label */}
+                    {/* Group: Label + DataKey */}
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-bold text-slate-400 uppercase">Etiqueta:</span>
                       <input
@@ -407,6 +641,17 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
                         value={field.label}
                         onChange={(e) => updateField(field.id, "label", e.target.value)}
                         className="bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 w-32 outline-[#4338ca]"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-1">
+                      <span className="text-[9px] font-bold text-indigo-400 uppercase">Clave:</span>
+                      <input
+                        type="text"
+                        value={field.dataKey ?? resolveDataKey(field.label, field.id)}
+                        onChange={(e) => updateField(field.id, "dataKey", e.target.value.trim().toLowerCase().replace(/\s+/g, "_"))}
+                        className="bg-transparent border-none outline-none text-[10px] font-mono font-bold text-indigo-700 w-28"
+                        title="Campos con la misma clave comparten valor en el formulario de emisión"
                       />
                     </div>
 
@@ -501,109 +746,143 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
               <Loader2 className="w-10 h-10 text-primary animate-spin" />
               <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Cargando Vista Previa...</p>
             </div>
-          ) : imagePreview ? (
-            <div className="relative group">
-              <div
-                className={`relative select-none ${isDragging ? "cursor-grabbing" : activeId ? "cursor-crosshair" : "cursor-default"}`}
-                onMouseDown={() => setIsDragging(true)}
-                onMouseUp={() => setIsDragging(false)}
-                onMouseLeave={() => setIsDragging(false)}
-                onMouseMove={(e) => {
-                  if (isDragging && activeId) {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const xRatio = (e.clientX - rect.left) / rect.width;
-                    const yRatio = (e.clientY - rect.top) / rect.height;
-                    if (activeId === "qr") {
-                      setQrXRatio(xRatio);
-                      setQrYRatio(yRatio);
-                    } else {
-                      setFields((prev) => prev.map((f) => f.id === activeId ? { ...f, xRatio, yRatio } : f));
-                    }
-                  }
-                }}
-                onClick={(e) => {
-                  if (!isDragging) handleImageClick(e);
-                }}
-              >
-                <img
-                  ref={imageRef}
-                  src={imagePreview}
-                  alt="Vista previa"
-                  className="w-full h-auto block"
-                  draggable={false}
-                  onLoad={handleImageLoad}
-                />
-
-                {/* Placement tooltip */}
-                {activeId && !isDragging && (
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-primary text-white text-[10px] font-bold px-4 py-2 rounded-full shadow-2xl animate-bounce pointer-events-none uppercase tracking-widest whitespace-nowrap border border-white/20">
-                    🖊 Click para posicionar &ldquo;{activeLabel}&rdquo;
-                  </div>
-                )}
-
-                {/* Field overlays */}
-                {fields.map((field) => (
+          ) : imagePreviews.length > 0 ? (
+            <div className="flex flex-col items-center w-full bg-slate-200/50 py-8 gap-y-12">
+              {imagePreviews.map((previewUrl, i) => {
+                const pageNum = i + 1;
+                return (
                   <div
-                    key={field.id}
-                    className={`absolute pointer-events-auto rounded-sm ${
-                      activeId === field.id 
-                        ? "ring-2 ring-indigo-500 bg-indigo-500/10 shadow-xl z-20 outline-dashed outline-2 outline-indigo-400 -outline-offset-2" 
-                        : "hover:ring-1 hover:ring-slate-300 z-10"
-                    } cursor-grab active:cursor-grabbing transition-all`}
-                    onMouseDown={(e) => {
-                        e.stopPropagation();
-                        setActiveId(field.id);
-                        setIsDragging(true);
-                    }}
-                    style={{
-                      left: `${field.xRatio * 100}%`,
-                      top: `${field.yRatio * 100}%`,
-                      transform: getAlignTransform(field.align),
-                      width: field.widthRatio ? `${field.widthRatio * 100}%` : 'auto',
-                      textAlign: field.align,
-                    }}
-                  >
-                    <div
-                      className={`${field.widthRatio ? "whitespace-normal break-words" : "whitespace-nowrap"}`}
-                      style={{
-                        color: field.color,
-                        fontSize: `${field.fontSize * previewScale}px`,
-                        fontFamily: getCssFamily(field.fontFamily),
-                        fontWeight: field.bold ? "700" : "400",
-                        fontStyle: field.italic ? "italic" : "normal",
-                        textDecoration: field.underline ? "underline" : "none",
-                        textAlign: field.align,
-                        lineHeight: 1.2,
-                      }}
+                      key={pageNum}
+                      className="relative group w-full bg-white border border-slate-200 shadow-2xl"
                     >
-                      {field.label}
+                     <div
+                       ref={(el) => { pageRefs.current[i] = el; }}
+                       className={`relative select-none ${isDragging ? "cursor-grabbing" : activeId ? "cursor-crosshair" : "cursor-default"}`}
+                       onClick={(e) => {
+                         if (!isDragging) handleImageClick(e, pageNum);
+                       }}
+                     >
+                       <img
+                         ref={pageNum === 1 ? imageRef : undefined}
+                         src={previewUrl}
+                         alt={`Vista previa Página ${pageNum}`}
+                         className="w-full h-auto block"
+                         draggable={false}
+                         onLoad={pageNum === 1 ? handleImageLoad : undefined}
+                       />
+
+                       {/* Placement tooltip eliminado según requerimiento */}
+
+                       {/* Field overlays - solo mostrar campos con coordenadas */}
+                       {fields.filter(f => f.xRatio !== undefined && (f.page ?? 1) === pageNum).map((field) => (
+
+                        <div
+                          key={field.id}
+                          className={`absolute pointer-events-auto rounded-sm ${
+                            activeId === field.id 
+                              ? "ring-2 ring-indigo-500 bg-indigo-500/10 shadow-xl z-20 outline-dashed outline-2 outline-indigo-400 -outline-offset-2" 
+                              : "hover:ring-1 hover:ring-slate-300 z-10"
+                          } cursor-grab active:cursor-grabbing transition-shadow`}
+                          onMouseDown={(e) => {
+                              e.stopPropagation();
+                              setActiveId(field.id);
+                              setIsDragging(true);
+                              const containerRect = e.currentTarget.parentElement!.getBoundingClientRect();
+                              const pointerX = (e.clientX - containerRect.left) / containerRect.width;
+                              const pointerY = (e.clientY - containerRect.top) / containerRect.height;
+                              dragOffsetRef.current = { x: pointerX - field.xRatio!, y: pointerY - field.yRatio! };
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            left: `${field.xRatio * 100}%`,
+                            top: `${field.yRatio * 100}%`,
+                            transform: getAlignTransform(field.align),
+                            width: field.widthRatio ? `${field.widthRatio * 100}%` : 'auto',
+                            textAlign: field.align,
+                          }}
+                        >
+                          <div
+                            className={`${field.widthRatio ? "whitespace-normal break-words" : "whitespace-nowrap"}`}
+                            style={{
+                              color: field.color,
+                              fontSize: `${field.fontSize * previewScale}px`,
+                              fontFamily: getCssFamily(field.fontFamily),
+                              fontWeight: field.bold ? "700" : "400",
+                              fontStyle: field.italic ? "italic" : "normal",
+                              textDecoration: field.underline ? "underline" : "none",
+                              textAlign: field.align,
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            {field.label}
+                          </div>
+                        </div>
+                       ))}{/* end fields map */}
+
+              {/* QR overlay */}
+                      {(qrPage === pageNum || (!qrPage && pageNum === 1)) && (
+                        <div
+                          className={`absolute pointer-events-auto border-2 ${activeId === "qr" ? 'border-indigo-500 bg-indigo-500/10 shadow-2xl' : 'border-slate-500/50 bg-white/80'} cursor-grab active:cursor-grabbing flex items-center justify-center rounded transition-shadow`}
+                          onMouseDown={(e) => {
+                              e.stopPropagation();
+                              setActiveId("qr");
+                              setIsDragging(true);
+                              const containerRect = e.currentTarget.parentElement!.getBoundingClientRect();
+                              const pointerX = (e.clientX - containerRect.left) / containerRect.width;
+                              const pointerY = (e.clientY - containerRect.top) / containerRect.height;
+                              dragOffsetRef.current = { x: pointerX - qrXRatio!, y: pointerY - qrYRatio! };
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            left: `${qrXRatio * 100}%`,
+                            top: `${qrYRatio * 100}%`,
+                            width: `${qrSizeRatio * 100}%`,
+                            aspectRatio: "1",
+                            transform: "translate(-50%, -50%)",
+                          }}
+                        >
+                          <QrCode className="w-2/3 h-2/3 text-slate-500 opacity-60" />
+                        </div>
+                      )}
+
+                      {/* Enlace de verificación overlay */}
+                      {vuXRatio !== undefined && vuYRatio !== undefined && vuPage === pageNum && (
+                        <div
+                          className={`absolute pointer-events-auto cursor-grab active:cursor-grabbing px-1.5 py-0.5 rounded border ${
+                            activeId === "verifyUrl"
+                              ? "border-indigo-400 bg-indigo-50/90 shadow-md"
+                              : "border-dashed border-slate-400/60 bg-white/70"
+                          } flex items-center gap-1 whitespace-nowrap transition-shadow`}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            setActiveId("verifyUrl");
+                            setIsDragging(true);
+                            const containerRect = e.currentTarget.parentElement!.getBoundingClientRect();
+                            const pointerX = (e.clientX - containerRect.left) / containerRect.width;
+                            const pointerY = (e.clientY - containerRect.top) / containerRect.height;
+                            dragOffsetRef.current = { x: pointerX - vuXRatio!, y: pointerY - vuYRatio! };
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            left: `${vuXRatio * 100}%`,
+                            top: `${vuYRatio * 100}%`,
+                            transform: "translate(-50%, -50%)",
+                          }}
+                        >
+                          <Link2 className="w-2.5 h-2.5 text-slate-400" />
+                          <span style={{ fontSize: `${vuFontSize * previewScale}px`, color: vuColor, fontFamily: "Helvetica, Arial, sans-serif" }}>
+                            certifica.magistral.pe/verificar/CERT-XXXXXX
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 shadow-sm pointer-events-none">
+                      Cara {pageNum} · {fields.filter(f => (f.page ?? 1) === pageNum).length} campos · QR {(qrPage === pageNum || (!qrPage && pageNum === 1)) ? '✓' : '×'} · URL {vuXRatio !== undefined && vuPage === pageNum ? '✓' : '×'}
                     </div>
                   </div>
-                ))}
-
-                {/* QR overlay */}
-                <div
-                  className={`absolute pointer-events-auto border-2 ${activeId === "qr" ? 'border-indigo-500 bg-indigo-500/10 shadow-2xl' : 'border-slate-500/50 bg-white/80'} cursor-grab active:cursor-grabbing flex items-center justify-center rounded transition-all`}
-                  onMouseDown={(e) => {
-                      e.stopPropagation();
-                      setActiveId("qr");
-                      setIsDragging(true);
-                  }}
-                  style={{
-                    left: `${qrXRatio * 100}%`,
-                    top: `${qrYRatio * 100}%`,
-                    width: `${qrSizeRatio * 100}%`,
-                    aspectRatio: "1",
-                    transform: "translate(-50%, -50%)",
-                  }}
-                >
-                  <QrCode className="w-2/3 h-2/3 text-slate-500 opacity-60" />
-                </div>
-              </div>
-              
-              <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 shadow-sm pointer-events-none">
-                {fields.length} campos · QR ✓
-              </div>
+                );
+              })}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-32 text-center px-8 bg-slate-50/50">
@@ -613,6 +892,41 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
           )}
         </div>
       </div>
+
+      {/* ── EXIT MODAL ────────────────────────────────────────────────────── */}
+      {showExitModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <h3 className="text-lg font-bold text-slate-900 mb-2">¿Salir sin guardar?</h3>
+            <p className="text-sm text-slate-500 mb-6">
+              Tienes cambios en tu plantilla. Si sales ahora, se perderán. ¿Deseas guardarlos?
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  setShowExitModal(false);
+                  handleSave();
+                }}
+                className="w-full py-2.5 bg-primary text-[13px] text-white font-bold rounded-xl hover:bg-indigo-800 transition-colors shadow-sm"
+              >
+                Guardar y Salir
+              </button>
+              <button
+                onClick={() => router.push("/admin/dashboard/templates")}
+                className="w-full py-2.5 bg-slate-100 text-[13px] text-slate-700 font-bold rounded-xl hover:bg-red-50 hover:text-red-600 transition-colors"
+              >
+                Salir sin guardar
+              </button>
+              <button
+                onClick={() => setShowExitModal(false)}
+                className="w-full py-2.5 bg-transparent text-[13px] text-slate-500 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

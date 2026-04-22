@@ -11,16 +11,39 @@ import Link from "next/link";
 import { generateCertificatePDF } from "@/lib/generateCertificatePDF";
 import { generateOfficialCertId } from "@/lib/generateCertId";
 
-// ─── Keywords that are auto-filled (no need to show input) ────────────────────
+// ─── Keywords que se auto-rellenan (no se muestran como input) ───────────────
 const AUTO_KEYS = [
+  "alumno_nombre", "curso_nombre", "fecha_emision",
+  // Fallback por label (compatibilidad con plantillas antiguas)
   "nombre del alumno", "alumno", "nombre",
   "nombre del curso", "curso",
   "fecha de emisión", "fecha",
 ];
 
-function isAutoField(label: string): boolean {
-  const lower = label.toLowerCase();
+function isAutoField(field: { label: string; dataKey?: string }): boolean {
+  if (field.dataKey && AUTO_KEYS.includes(field.dataKey)) return true;
+  const lower = field.label.toLowerCase();
   return AUTO_KEYS.some((k) => lower.includes(k));
+}
+
+/** Retorna un subconjunto de campos deduplicados por dataKey — un campo representativo por clave. */
+function deduplicateFieldsByDataKey(fields: Template["fields"]) {
+  const seen = new Set<string>();
+  return fields.filter((f) => {
+    const key = f.dataKey || `unique_${f.id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function resolveDataKey(label: string, id: string): string {
+  const l = label.toLowerCase();
+  if (l.includes("alumno") || (l.includes("nombre") && !l.includes("curso"))) return "alumno_nombre";
+  if (l.includes("curso")) return "curso_nombre";
+  if (l.includes("fecha")) return "fecha_emision";
+  if (l.includes("dni") || l.includes("documento")) return "alumno_dni";
+  return `custom_${id}`;
 }
 
 export default function IssueCertificatePage() {
@@ -34,6 +57,13 @@ export default function IssueCertificatePage() {
   const [issueDate, setIssueDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [status, setStatus] = useState<string | null>(null);
+
+  // Bureaucratic validation fields
+  const [dni, setDni] = useState("");
+  const [finalGrade, setFinalGrade] = useState("");
+  const [hours, setHours] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   // Dynamic extra fields — keyed by field.id, value is user input
   const [extraValues, setExtraValues] = useState<Record<string, string>>({});
@@ -50,16 +80,18 @@ export default function IssueCertificatePage() {
   useEffect(() => {
     if (!selectedTemplate) { setExtraValues({}); return; }
     const extras: Record<string, string> = {};
-    for (const field of selectedTemplate.fields) {
-      if (!isAutoField(field.label)) {
-        extras[field.id] = "";
+    const deduplicated = deduplicateFieldsByDataKey(selectedTemplate.fields);
+    for (const field of deduplicated) {
+      if (!isAutoField(field)) {
+        const key = field.dataKey || resolveDataKey(field.label, field.id);
+        extras[key] = "";
       }
     }
     setExtraValues(extras);
   }, [selectedTemplateId, selectedTemplate]);
 
-  // Extra fields for this template (non-auto)
-  const extraFields = selectedTemplate?.fields.filter((f) => !isAutoField(f.label)) ?? [];
+  // Extra fields for this template (non-auto, deduplicated by dataKey)
+  const extraFields = deduplicateFieldsByDataKey(selectedTemplate?.fields ?? []).filter((f) => !isAutoField(f));
 
   const handleIssue = async () => {
     if (!selectedTemplateId || !recipientName || !courseName || !issueDate) {
@@ -75,11 +107,14 @@ export default function IssueCertificatePage() {
       const certId = await generateOfficialCertId();
       const baseUrl = window.location.origin;
 
-      // Build extraFields map: { "intro": "texto intro", "descripción": "...", ... }
+      // Construir extraFields map usando dataKey como clave (más robusto y predecible)
       const extraFieldsMap: Record<string, string> = {};
       for (const field of extraFields) {
-        const val = extraValues[field.id] ?? "";
+        const key = field.dataKey || resolveDataKey(field.label, field.id);
+        const val = extraValues[key] ?? "";
         if (val.trim()) {
+          extraFieldsMap[key] = val;
+          // También añadir el label como alias para compatibilidad con el generador legacy
           extraFieldsMap[field.label.toLowerCase()] = val;
         }
       }
@@ -106,6 +141,11 @@ export default function IssueCertificatePage() {
         recipientName,
         courseName,
         issueDate: new Date(issueDate).getTime(),
+        dni,
+        finalGrade,
+        hours,
+        startDate: startDate ? new Date(startDate).getTime() : null,
+        endDate: endDate ? new Date(endDate).getTime() : null,
         ...(recipientEmail ? { email: recipientEmail } : {}),
         pdfUrl,
         status: "active",
@@ -178,37 +218,36 @@ export default function IssueCertificatePage() {
           </select>
         </div>
 
-        {/* ── Unified Template Fields (Sorted by Y position) ──────────────────── */}
-        {selectedTemplate && selectedTemplate.fields
+        {/* ── Unified Template Fields (deduplicados por dataKey) ────────────── */}
+        {selectedTemplate && deduplicateFieldsByDataKey(selectedTemplate.fields)
           .map((field) => {
+            const dataKey = field.dataKey || resolveDataKey(field.label, field.id);
             const labelLower = field.label.toLowerCase();
             
             // 1. Recipient Name
-            if (labelLower.includes("alumno") || labelLower.includes("nombre")) {
-              if (!labelLower.includes("curso") && !labelLower.includes("intro")) {
-                return (
-                  <div key={field.id}>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                      {field.label} <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={recipientName}
-                      onChange={(e) => setRecipientName(e.target.value)}
-                      placeholder="Ej. Juan Diego Pérez López"
-                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    />
-                  </div>
-                );
-              }
+            if (dataKey === "alumno_nombre" || (!field.dataKey && (labelLower.includes("alumno") || labelLower.includes("nombre")) && !labelLower.includes("curso") && !labelLower.includes("intro"))) {
+              return (
+                <div key={dataKey}>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    Nombre del Alumno <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={recipientName}
+                    onChange={(e) => setRecipientName(e.target.value)}
+                    placeholder="Ej. Juan Diego Pérez López"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+              );
             }
 
             // 2. Course Name
-            if (labelLower.includes("curso")) {
+            if (dataKey === "curso_nombre" || (!field.dataKey && labelLower.includes("curso"))) {
               return (
-                <div key={field.id}>
+                <div key={dataKey}>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    {field.label} <span className="text-red-400">*</span>
+                    Nombre del Curso <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="text"
@@ -222,11 +261,11 @@ export default function IssueCertificatePage() {
             }
 
             // 3. Issue Date
-            if (labelLower.includes("fecha")) {
+            if (dataKey === "fecha_emision" || (!field.dataKey && labelLower.includes("fecha"))) {
               return (
-                <div key={field.id}>
+                <div key={dataKey}>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    {field.label} <span className="text-red-400">*</span>
+                    Fecha de Emisión <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="date"
@@ -238,22 +277,55 @@ export default function IssueCertificatePage() {
               );
             }
 
-            // 4. Custom/Extra Fields
+            // 4. Custom/Extra Fields (usando dataKey como clave del estado)
             return (
-              <div key={field.id}>
+              <div key={dataKey}>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">
                   {field.label}
+                  <span className="text-[10px] font-mono text-slate-400 ml-2">({dataKey})</span>
                 </label>
                 <textarea
                   rows={field.widthRatio ? 2 : 1}
-                  value={extraValues[field.id] ?? ""}
-                  onChange={(e) => setExtraValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                  value={extraValues[dataKey] ?? ""}
+                  onChange={(e) => setExtraValues((prev) => ({ ...prev, [dataKey]: e.target.value }))}
                   placeholder={`Ingresa el contenido para "${field.label}"...`}
                   className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
                 />
               </div>
             );
           })}
+
+        {/* ── Bureaucratic Validation Data ─────────────────────────────────────── */}
+        {selectedTemplateId && (
+          <div className="border-t border-slate-100 pt-5 space-y-5">
+            <h3 className="text-sm font-bold text-slate-800">Datos de Validación Oficial</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">Documento de Identidad (DNI/CE)</label>
+                <input type="text" value={dni} onChange={(e) => setDni(e.target.value)} placeholder="Ej. 76543210" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">Calificación Final</label>
+                <input type="text" value={finalGrade} onChange={(e) => setFinalGrade(e.target.value)} placeholder="Ej. 18/20 o Sobresaliente" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">Horas Lectivas / Créditos</label>
+                <input type="text" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="Ej. 120 Horas" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5">Fecha Inicio</label>
+                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5">Fecha Fin</label>
+                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Additional Data (Always at the end) ───────────────────────────── */}
         {selectedTemplateId && (

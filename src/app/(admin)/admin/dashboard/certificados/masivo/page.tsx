@@ -16,12 +16,26 @@ import * as XLSX from "xlsx";
 import { generateCertificatePDF } from "@/lib/generateCertificatePDF";
 import { generateOfficialCertId } from "@/lib/generateCertId";
 
-// ─── Keywords that are auto-filled ───────────────────────────────────────────
-const AUTO_KEYS = [
-  "nombre del alumno", "alumno", "nombre",
-  "nombre del curso", "curso",
-  "fecha de emisión", "fecha",
-];
+// ─── dataKeys que son manejados directamente por generateCertificatePDF ──────
+// Campos con estos dataKey se mapean a los params dedicados y NO van en extraFields
+const CORE_DATA_KEYS = new Set([
+  "alumno_nombre",
+  "curso_nombre",
+  "fecha_emision",
+]);
+
+/** Devuelve true si el campo va en los params core (no en extraFields) */
+function isCoreField(field: { dataKey?: string; label: string }): boolean {
+  if (field.dataKey) return CORE_DATA_KEYS.has(field.dataKey);
+  // Fallback para plantillas antiguas sin dataKey
+  const l = field.label.toLowerCase();
+  return (
+    l.includes("alumno") ||
+    (l.includes("nombre") && !l.includes("curso")) ||
+    l.includes("curso") ||
+    l.includes("fecha")
+  );
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -39,8 +53,9 @@ function cleanMatch(str: string): string {
 }
 
 function isAutoField(label: string): boolean {
+  // Mantenido solo por compatibilidad, usar isCoreField cuando se tiene el field completo
   const cleaned = cleanMatch(label);
-  return AUTO_KEYS.some((k) => cleaned.includes(cleanMatch(k)));
+  return ["alumno", "nombre", "curso", "fecha"].some((k) => cleaned.includes(k));
 }
 
 /**
@@ -89,6 +104,11 @@ interface CsvRow {
   curso: string;
   fecha: string;
   email?: string;
+  dni?: string;
+  finalGrade?: string;
+  hours?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 type RowStatus = "pending" | "processing" | "done" | "error";
@@ -110,18 +130,24 @@ function normalizeHeaders(raw: Record<string, any>): CsvRow | null {
     map[cleanMatch(k)] = raw[k];
   }
 
-  // Búsqueda flexible por palabras clave normalizadas
+  // Búsqueda flexible: acepta nombres dataKey estándar Y nombres legacy
   const findVal = (keywords: string[]) => {
     for (const k of keywords) {
-      if (map[cleanMatch(k)] !== undefined) return map[cleanMatch(k)];
+      if (map[cleanMatch(k)] !== undefined && map[cleanMatch(k)] !== "") return map[cleanMatch(k)];
     }
     return "";
   };
 
-  const nombre = findVal(["nombre", "alumno", "nombre del alumno", "estudiante", "nombre completo"]);
-  const curso  = findVal(["curso", "nombre del curso", "programa", "taller", "materia"]);
-  const fechaRaw = findVal(["fecha", "fecha de emision", "emision", "date"]);
+  // Nombres dataKey estándar primero, luego nombres legacy para compatibilidad
+  const nombre = findVal(["alumno_nombre", "nombre", "alumno", "nombre del alumno", "estudiante", "nombre completo"]);
+  const curso  = findVal(["curso_nombre", "curso", "nombre del curso", "programa", "taller", "materia"]);
+  const fechaRaw = findVal(["fecha_emision", "fecha", "fecha de emision", "emision", "date"]);
   const email  = findVal(["email", "correo", "e-mail", "contacto"]);
+  const dni    = findVal(["alumno_dni", "dni", "documento", "ce", "identidad", "rut", "cedula"]);
+  const finalGrade = findVal(["calificacion", "nota", "grade", "puntaje"]);
+  const hours  = findVal(["horas", "creditos", "duracion", "lectivas"]);
+  const startDateRaw = findVal(["fecha_inicio", "fecha inicio", "inicio", "desde"]);
+  const endDateRaw   = findVal(["fecha_fin", "fecha fin", "fin", "hasta"]);
 
   if (!nombre || !curso || !fechaRaw) return null;
 
@@ -129,7 +155,12 @@ function normalizeHeaders(raw: Record<string, any>): CsvRow | null {
     nombre: String(nombre), 
     curso: String(curso), 
     fecha: String(fechaRaw), 
-    email: email ? String(email) : undefined 
+    email: email ? String(email) : undefined,
+    dni: dni ? String(dni) : undefined,
+    finalGrade: finalGrade ? String(finalGrade) : undefined,
+    hours: hours ? String(hours) : undefined,
+    startDate: startDateRaw ? String(startDateRaw) : undefined,
+    endDate: endDateRaw ? String(endDateRaw) : undefined,
   };
 }
 
@@ -137,9 +168,10 @@ function isValidDate(str: string) {
   return !!parseFlexibleDate(str);
 }
 
-const CSV_TEMPLATE = `nombre,curso,fecha,email
-Juan Pérez,Taller de Liderazgo,${new Date().toISOString().split("T")[0]},juan@email.com
-María García,Curso de Excel,${new Date().toISOString().split("T")[0]},`;
+// Template CSV de ejemplo — las columnas coinciden con los dataKey estándar
+const CSV_TEMPLATE = `alumno_nombre,curso_nombre,fecha_emision,email,alumno_dni,calificacion,horas,fecha_inicio,fecha_fin
+Juan Pérez,Taller de Liderazgo,${new Date().toISOString().split("T")[0]},juan@email.com,76543210,18/20,120 Horas,2023-01-01,2023-01-31
+María García,Curso de Excel,${new Date().toISOString().split("T")[0]},,,,,`;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -167,7 +199,8 @@ export default function BulkIssuePage() {
     if (!selectedTemplate) { setExtraValues({}); return; }
     const extras: Record<string, string> = {};
     for (const field of selectedTemplate.fields) {
-      if (!isAutoField(field.label)) {
+      // Solo mostrar input manual para campos que no se cargan del CSV automáticamente
+      if (!isCoreField(field)) {
         extras[field.id] = "";
       }
     }
@@ -258,23 +291,37 @@ export default function BulkIssuePage() {
       try {
         const certId = await generateOfficialCertId();
 
-        // 1. Build dynamic extra fields map
+        // 1. Construir mapa de datos extra (campos que NO son core)
         const extraFieldsMap: Record<string, string> = {};
-        for (const field of template.fields) {
-          if (isAutoField(field.label)) continue;
 
-          // Check if CSV has a column matching this label (Búsqueda inteligente sin tildes)
-          const fieldLabelClean = cleanMatch(field.label);
-          let val = extraValues[field.id] || ""; // Valor estático por defecto
-          
-          if (row._raw) {
-            const csvKey = Object.keys(row._raw).find(k => cleanMatch(k) === fieldLabelClean);
-            if (csvKey && row._raw[csvKey]) {
-              val = String(row._raw[csvKey]); // Sobrescribir con el dato del Excel si existe
-            }
+        // Primero, construir mapa normalizado de todas las columnas del CSV
+        const rawNormalized: Record<string, string> = {};
+        if (row._raw) {
+          for (const k in row._raw) {
+            // Mapear por dataKey exacto y por cleanMatch para compatibilidad
+            rawNormalized[cleanMatch(k)] = String(row._raw[k] ?? "");
           }
-          
-          extraFieldsMap[field.label.toLowerCase()] = val;
+        }
+
+        for (const field of template.fields) {
+          if (isCoreField(field)) continue; // Los campos core van en params dedicados
+
+          const dk = field.dataKey ?? `custom_${field.id}`;
+
+          // Prioridad: 1) columna con nombre exacto = dataKey, 2) cleanMatch del dataKey,
+          // 3) cleanMatch del label, 4) valor estático del extraValues UI
+          let val = extraValues[field.id] ?? "";
+
+          if (rawNormalized[dk]) {
+            val = rawNormalized[dk];
+          } else if (rawNormalized[cleanMatch(dk)]) {
+            val = rawNormalized[cleanMatch(dk)];
+          } else if (rawNormalized[cleanMatch(field.label)]) {
+            val = rawNormalized[cleanMatch(field.label)];
+          }
+
+          // Guardar con la clave dataKey para que generateCertificatePDF la encuentre
+          extraFieldsMap[dk] = val;
         }
 
         // 2. Generate PDF
@@ -300,6 +347,11 @@ export default function BulkIssuePage() {
           recipientName: row.nombre,
           courseName: row.curso,
           issueDate: new Date(row.fecha).getTime(),
+          ...(row.dni ? { dni: row.dni } : {}),
+          ...(row.finalGrade ? { finalGrade: row.finalGrade } : {}),
+          ...(row.hours ? { hours: row.hours } : {}),
+          ...(row.startDate && parseFlexibleDate(row.startDate) ? { startDate: new Date(parseFlexibleDate(row.startDate)!).getTime() } : {}),
+          ...(row.endDate && parseFlexibleDate(row.endDate) ? { endDate: new Date(parseFlexibleDate(row.endDate)!).getTime() } : {}),
           ...(row.email ? { email: row.email } : {}),
           pdfUrl,
           status: "active",

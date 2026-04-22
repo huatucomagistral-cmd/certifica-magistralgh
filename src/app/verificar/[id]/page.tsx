@@ -112,6 +112,40 @@ export default function VerifyCertificatePage({ params }: { params: Promise<{ id
                    </div>
                 </div>
 
+                {(cert.dni || cert.finalGrade || cert.hours || cert.startDate || cert.endDate) && (
+                  <div className="pt-6 border-t border-slate-100">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Datos de Validación Pública</p>
+                    <div className="grid grid-cols-2 gap-y-4 gap-x-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      {cert.dni && (
+                        <div>
+                           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">DNI/CE</p>
+                           <p className="text-sm font-medium text-slate-800">{cert.dni}</p>
+                        </div>
+                      )}
+                      {cert.finalGrade && (
+                        <div>
+                           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Calificación</p>
+                           <p className="text-sm font-medium text-slate-800">{cert.finalGrade}</p>
+                        </div>
+                      )}
+                      {cert.hours && (
+                        <div>
+                           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Horas Lectivas</p>
+                           <p className="text-sm font-medium text-slate-800">{cert.hours}</p>
+                        </div>
+                      )}
+                      {cert.startDate && cert.endDate && (
+                        <div>
+                           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Periodo</p>
+                           <p className="text-sm font-medium text-slate-800">
+                             {new Date(cert.startDate * (cert.startDate > 1e11 ? 1 : 1000)).toLocaleDateString()} - {new Date(cert.endDate * (cert.endDate > 1e11 ? 1 : 1000)).toLocaleDateString()}
+                           </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="pt-6 border-t border-slate-100">
                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">ID Único de Verificación</p>
                    <p className="text-sm text-slate-600 font-mono break-all bg-slate-50 p-4 rounded-xl border border-slate-200">{cert.id}</p>

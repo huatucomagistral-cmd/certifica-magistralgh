@@ -3,12 +3,12 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import {
-  collection, getDocs, orderBy, query, deleteDoc, doc, updateDoc,
+  collection, getDocs, orderBy, query, deleteDoc, doc, updateDoc, addDoc,
 } from "firebase/firestore";
 import { ref, deleteObject } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
 import { Template } from "@/lib/types";
-import { Copy, Plus, Trash2, Eye, FileText, Pencil, Check, X as XIcon, Edit2 } from "lucide-react";
+import { Copy, Plus, Trash2, Eye, FileText, Pencil, Check, X as XIcon, Edit2, Loader2 } from "lucide-react";
 
 
 function isBgPdf(url: string) {
@@ -36,6 +36,7 @@ export default function TemplatesPage() {
   const [templates, setTemplates]     = useState<Template[]>([]);
   const [loading, setLoading]         = useState(true);
   const [deletingId, setDeletingId]   = useState<string | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [renamingId, setRenamingId]   = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [savingName, setSavingName]   = useState(false);
@@ -91,6 +92,41 @@ export default function TemplatesPage() {
       console.error(e);
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleDuplicate = async (template: Template) => {
+    setDuplicatingId(template.id);
+    try {
+      const newDoc = await addDoc(collection(db, "templates"), {
+        name:        `Copia de ${template.name}`,
+        bgImageUrl:  template.bgImageUrl,
+        fields:      template.fields,
+        qrXRatio:    template.qrXRatio    ?? 0.88,
+        qrYRatio:    template.qrYRatio    ?? 0.92,
+        qrSizeRatio: template.qrSizeRatio ?? 0.12,
+        qrPage:      template.qrPage      ?? 1,
+        createdAt:   Date.now(),
+        updatedAt:   Date.now(),
+      });
+      // Agrega la copia al inicio de la lista sin necesidad de recargar
+      const copy: Template = {
+        id:          newDoc.id,
+        name:        `Copia de ${template.name}`,
+        bgImageUrl:  template.bgImageUrl,
+        fields:      template.fields,
+        qrXRatio:    template.qrXRatio    ?? 0.88,
+        qrYRatio:    template.qrYRatio    ?? 0.92,
+        qrSizeRatio: template.qrSizeRatio ?? 0.12,
+        qrPage:      template.qrPage      ?? 1,
+        createdAt:   Date.now(),
+      };
+      setTemplates((prev) => [copy, ...prev]);
+    } catch (e) {
+      alert("Error al duplicar la plantilla.");
+      console.error(e);
+    } finally {
+      setDuplicatingId(null);
     }
   };
 
@@ -206,6 +242,19 @@ export default function TemplatesPage() {
                         >
                           <Edit2 className="w-4 h-4" />
                         </Link>
+                        {/* Duplicate */}
+                        <button
+                          onClick={() => handleDuplicate(template)}
+                          disabled={duplicatingId === template.id}
+                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-50"
+                          title="Duplicar plantilla"
+                        >
+                          {duplicatingId === template.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </button>
                         {/* Open background */}
                         <a
                           href={template.bgImageUrl}
