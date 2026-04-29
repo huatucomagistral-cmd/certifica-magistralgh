@@ -110,6 +110,7 @@ export default function TemplatesPage() {
         updatedAt:   Date.now(),
       });
       // Agrega la copia al inicio de la lista sin necesidad de recargar
+      const now = Date.now();
       const copy: Template = {
         id:          newDoc.id,
         name:        `Copia de ${template.name}`,
@@ -119,7 +120,8 @@ export default function TemplatesPage() {
         qrYRatio:    template.qrYRatio    ?? 0.92,
         qrSizeRatio: template.qrSizeRatio ?? 0.12,
         qrPage:      template.qrPage      ?? 1,
-        createdAt:   Date.now(),
+        createdAt:   now,
+        updatedAt:   now,
       };
       setTemplates((prev) => [copy, ...prev]);
     } catch (e) {

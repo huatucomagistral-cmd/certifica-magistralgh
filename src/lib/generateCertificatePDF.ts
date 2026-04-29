@@ -214,6 +214,9 @@ export async function generateCertificatePDF(params: GeneratePDFParams): Promise
 
   // ── 3. Draw text fields ─────────────────────────────────────────────────────
   for (const field of template.fields) {
+    // Saltar campos sin posición (no fueron posicionados por el usuario)
+    if (field.xRatio === undefined || field.yRatio === undefined) continue;
+
     const targetPageNum = (field.page ?? 1) - 1;
     const targetPage = pdfDoc.getPages()[targetPageNum] || pdfDoc.getPages()[0];
 

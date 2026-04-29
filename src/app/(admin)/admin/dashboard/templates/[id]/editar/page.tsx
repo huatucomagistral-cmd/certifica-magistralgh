@@ -719,11 +719,11 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
                         <span className="text-[10px] font-bold text-slate-400 uppercase">Pos Cort</span>
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] text-slate-400">X:</span>
-                          <NumericControl value={+(field.xRatio * 100).toFixed(1)} onChange={(v) => updateField(field.id, "xRatio", v / 100)} step={0.5} min={0} max={100} suffix="%" className="w-24" />
+                          <NumericControl value={+((field.xRatio ?? 0) * 100).toFixed(1)} onChange={(v) => updateField(field.id, "xRatio", v / 100)} step={0.5} min={0} max={100} suffix="%" className="w-24" />
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] text-slate-400">Y:</span>
-                          <NumericControl value={+(field.yRatio * 100).toFixed(1)} onChange={(v) => updateField(field.id, "yRatio", v / 100)} step={0.5} min={0} max={100} suffix="%" className="w-24" />
+                          <NumericControl value={+((field.yRatio ?? 0) * 100).toFixed(1)} onChange={(v) => updateField(field.id, "yRatio", v / 100)} step={0.5} min={0} max={100} suffix="%" className="w-24" />
                         </div>
                       </div>
                     </div>
@@ -794,8 +794,8 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
                           }}
                           onClick={(e) => e.stopPropagation()}
                           style={{
-                            left: `${field.xRatio * 100}%`,
-                            top: `${field.yRatio * 100}%`,
+                            left: `${(field.xRatio ?? 0) * 100}%`,
+                            top: `${(field.yRatio ?? 0) * 100}%`,
                             transform: getAlignTransform(field.align),
                             width: field.widthRatio ? `${field.widthRatio * 100}%` : 'auto',
                             textAlign: field.align,

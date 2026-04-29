@@ -5,8 +5,8 @@ export type TemplateField = {
   label: string;
   /** Clave semántica del dato. Campos con el mismo dataKey comparten el mismo input en el formulario de emisión. */
   dataKey?: string;
-  xRatio: number;
-  yRatio: number;
+  xRatio?: number;
+  yRatio?: number;
   widthRatio?: number;
   fontSize: number;
   color: string;
